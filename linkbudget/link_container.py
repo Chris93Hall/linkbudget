@@ -20,7 +20,7 @@ class LinkContainer:
         self.publisher.publish(self.data_list)
 
     def add_component(self, component):
-        self.components_list.append(componen)
+        self.components_list.append(component)
 
     def compute(self):
         # reset data list
@@ -32,10 +32,19 @@ class LinkContainer:
             data_dict = component.propagate_signal(signal_power, noise_power)
             signal_power = data_dict['signal_power_out']
             noise_power = data_dict['noise_power_out']
-            snr = convert.linear_to_db(sig_power / noise_power)
+            if noise_power == 0.0:
+                snr = np.inf
+            else:
+                snr = convert.linear_to_db(signal_power / noise_power)
             data_dict['snr'] = snr
-            data_dict['noise_gain'] = data_dict['noise_power_out'] / data_dict['noise_power_in']
-            data_dict['signal_gain'] = data_dict['signal_power_out'] / data_dict['signal_power_in']
+            if data_dict['noise_power_in'] == 0.0:
+                data_dict['noise_gain'] = np.inf
+            else:
+                data_dict['noise_gain'] = data_dict['noise_power_out'] / data_dict['noise_power_in']
+            if data_dict['signal_power_in'] == 0.0:
+                data_dict['signal_gain'] = np.inf
+            else:
+                data_dict['signal_gain'] = data_dict['signal_power_out'] / data_dict['signal_power_in']
             self.data_list.append(data_dict)
 
 class Component:
@@ -65,10 +74,10 @@ class SignalSource(Component):
     def propagate_signal(self, signal_power=0.0, noise_power=0.0):
         data_dict = {'name': self.name,
                      'description': self.description,
-                     'signal_power_in': sig_power,
+                     'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': sig_power,
-                     'noise_power_out': noise_power}
+                     'signal_power_out': signal_power + self.signal_power,
+                     'noise_power_out': noise_power + self.noise_power}
         return data_dict
 
 class FreeSpacePathLoss(Component):
@@ -81,9 +90,9 @@ class FreeSpacePathLoss(Component):
     def propagate_signal(self, signal_power, noise_power):
         data_dict = {'name': self.name,
                      'description': self.description,
-                     'signal_power_in': sig_power,
+                     'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': sig_power,
+                     'signal_power_out': signal_power,
                      'noise_power_out': noise_power}
         return data_dict
 
@@ -101,9 +110,9 @@ class Gain(Component):
 
         data_dict = {'name': self.name,
                      'description': self.description,
-                     'signal_power_in': sig_power,
+                     'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': sig_power * gain,
+                     'signal_power_out': signal_power * gain,
                      'noise_power_out': noise_power * gain}
         return data_dict
 

@@ -24,5 +24,10 @@ budget.add_component(Gain('Rx antenna gain',
                           gain=3.0,
                           db = True))
 
+budget.add_component(SignalSource('Noise source',
+                                  'Noise at receive antenna',
+                                  signal_power = 0.0,
+                                  noise_power = 1.0))
+
 budget.compute()
 budget.publish()                                        
