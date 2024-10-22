@@ -3,7 +3,7 @@ example link budget
 """
 
 from linkbudget.link_container import LinkContainer
-from linkbudget.link_container import SignalSource, FreeSpacePathLoss, Gain
+from linkbudget.link_container import SignalSource, FreeSpacePathLoss, Gain, SubBandTune
 from linkbudget.publishers import StdOutPublisher
 
 budget = LinkContainer()
@@ -28,5 +28,7 @@ budget.add_component(SignalSource('Noise source',
                                   'Noise at receive antenna',
                                   signal_power = 0.0,
                                   noise_power = 1.0))
+
+budget.add_component(SubBandTune(input_bandwidth=10e6, output_bandwidth=2e6))
 
 budget.publish()                                        

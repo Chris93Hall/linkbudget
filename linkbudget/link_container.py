@@ -133,7 +133,69 @@ class QuantizationNoise:
         lsb = 1.0 / self.total_bits ** 2
 
 class SubBandTune:
-    pass
+    def __init__(self, name='Subband Tuner', description='', input_bandwidth=1.0, output_bandwidth=1.0):
+        if output_bandwidth > input_bandwidth:
+            raise ValueError('SubBandTune: output bandwidth must be less than input bandwidth')
+
+        self.name = name
+        self.description = description
+        self.input_bandwidth = input_bandwidth
+        self.output_bandwidth = output_bandwidth
+
+    def propagate_signal(self, signal_power, noise_power):
+        reduction_ratio = self.output_bandwidth / self.input_bandwidth
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power * reduction_ratio,
+                     'noise_power_out': noise_power * reduction_ratio,
+                     'input_bandwidth': self.input_bandwidth,
+                     'output_bandwidth': self.output_bandwidth}
+        return data_dict
+
+class NoiseFigure:
+    def __init__(self, name='Noise figure', description='', noise_figure=1.0):
+        self.name = name
+        self.description = description
+        self.noise_figure = noise_figure
+
+    def propagate_signal(self, signal_power, noise_power):
+        noise_factor = 10.0**(self.noise_figure/10.0)
+        added_noise_power = noise_power * (noise_factor + 1)
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power,
+                     'noise_power_out': noise_power + added_noise_power,
+                     'noise_figure': self.noise_figure,
+                     'noise_factor': noise_factor}
+        return data_dict
+
+class RFComponent:
+    def __init__(self, name='RF Component', description='', gain=1.0, noise_figure=1.0):
+        self.name = name
+        self.description = description
+        self.gain = gain
+        self.noise_figure = noise_figure
+
+    def propagate_signal(self, signal_power, noise_power):
+        noise_factor = 10.0**(self.noise_figure/10.0)
+        gain_linear = 10.0**(self.gain/10.0)
+        added_noise_power = noise_power * gain * (noise_factor + 1)
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power * gain_linear,
+                     'noise_power_out': (noise_power * gain_linear) + added_noise_power,
+                     'noise_figure': self.noise_figure,
+                     'noise_factor': noise_factor,
+                     'gain': self.gain}
+        return data_dict
+
+
 
 class Integrate:
     pass
