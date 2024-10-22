@@ -29,5 +29,4 @@ budget.add_component(SignalSource('Noise source',
                                   signal_power = 0.0,
                                   noise_power = 1.0))
 
-budget.compute()
 budget.publish()                                        

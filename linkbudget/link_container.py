@@ -17,6 +17,7 @@ class LinkContainer:
         self.publisher = publisher
 
     def publish(self):
+        self.compute()
         self.publisher.publish(self.data_list)
 
     def add_component(self, component):
@@ -35,7 +36,7 @@ class LinkContainer:
             if noise_power == 0.0:
                 snr = np.inf
             else:
-                snr = convert.linear_to_db(signal_power / noise_power)
+                snr = signal_power / noise_power
             data_dict['snr'] = snr
             if data_dict['noise_power_in'] == 0.0:
                 data_dict['noise_gain'] = np.inf
@@ -88,12 +89,16 @@ class FreeSpacePathLoss(Component):
         self.frequency = frequency
 
     def propagate_signal(self, signal_power, noise_power):
+        fspl = (4.0 * np.pi * self.distance * self.frequency / 2.99792458e8) ** 2
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': signal_power,
-                     'noise_power_out': noise_power}
+                     'signal_power_out': signal_power / fspl,
+                     'noise_power_out': noise_power / fspl,
+                     'speed_of_light': 2.99792458e8,
+                     'speed_of_light_units': 'meters per second',
+                     'free_space_path_loss_formula': '(4.0 * Pi * frequency * distance / speed_of_light) ^ 2'}
         return data_dict
 
 class Gain(Component):
@@ -117,7 +122,15 @@ class Gain(Component):
         return data_dict
 
 class QuantizationNoise:
-    pass
+    def __init__(self, total_bits=12, utilized_bits=10):
+        self.total_bits = total_bits
+        self.utilized_bits = utilized_bits
+        self.dynamic_range = 10.0
+    
+    def propagate_signal(self, signal_power, noise_power):
+        total_power = signal_power + noise_power    
+        total_range = np.sqrt(total_power)
+        lsb = 1.0 / self.total_bits ** 2
 
 class SubBandTune:
     pass

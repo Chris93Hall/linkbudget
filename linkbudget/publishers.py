@@ -27,10 +27,19 @@ class StdOutPublisher:
             print(f'        {description}')
 
     def publish_detailed(self, data_list):
-        pass
+        print('-'*40)
+        print('      DETAILED LINK BUDGET REPORT')
+        print('-'*40)
+        for index, data, in enumerate(data_list):
+            print('-'*40)
+            print(f' {index + 1}. {data["name"]}')
+            for key in data.keys():
+                pretty_key = key.replace('_', ' ')
+                print(f'      {pretty_key}: {data[key]}')
 
     def publish(self, data_list):
         self.publish_summary(data_list)
+        print('')
         self.publish_detailed(data_list)
 
 
