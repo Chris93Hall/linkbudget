@@ -133,25 +133,36 @@ class QuantizationNoise:
         lsb = 1.0 / self.total_bits ** 2
 
 class SubBandTune:
-    def __init__(self, name='Subband Tuner', description='', input_bandwidth=1.0, output_bandwidth=1.0):
-        if output_bandwidth > input_bandwidth:
-            raise ValueError('SubBandTune: output bandwidth must be less than input bandwidth')
+    def __init__(self, name='Sub-band Tuner', description='', input_upper_freq=1e6,
+                 input_lower_freq=0.0, signal_upper_freq=4e6, signal_lower_freq=2e6,
+                 output_upper_freq=3e6, output_lower_freq=2e6):
 
         self.name = name
         self.description = description
-        self.input_bandwidth = input_bandwidth
-        self.output_bandwidth = output_bandwidth
+        self.input_upper_freq = input_upper_freq
+        self.input_lower_freq = input_lower_freq
+        self.signal_upper_freq = signal_upper_freq
+        self.signal_lower_freq = signal_lower_freq
+        self.output_upper_freq = output_upper_freq
+        self.output_lower_freq = output_lower_freq
 
     def propagate_signal(self, signal_power, noise_power):
-        reduction_ratio = self.output_bandwidth / self.input_bandwidth
+        noise_reduction_ratio = (self.output_upper_freq - self.output_lower_freq) / (self.input_upper_freq - self.input_lower_freq)
+        signal_bw = self.signal_upper_freq - self.signal_lower_freq
+        new_signal_bw = min(self.output_upper_freq, self.signal_upper_freq) - max(self.output_lower_freq, self.signal_lower_freq)
+        signal_reduction_ratio = new_signal_bw / signal_bw
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': signal_power * reduction_ratio,
-                     'noise_power_out': noise_power * reduction_ratio,
-                     'input_bandwidth': self.input_bandwidth,
-                     'output_bandwidth': self.output_bandwidth}
+                     'signal_power_out': signal_power * signal_reduction_ratio,
+                     'noise_power_out': noise_power * noise_reduction_ratio,
+                     'input_lower_frequency': self.input_lower_freq,
+                     'input_upper_frequency': self.input_upper_freq,
+                     'output_lower_frequency': self.output_lower_freq,
+                     'output_upper_frequency': self.output_upper_freq,
+                     'signal_lower_frequency_in': self.signal_lower_freq,
+                     'signal_upper_frequency_in': self.signal_upper_freq}
         return data_dict
 
 class NoiseFigure:

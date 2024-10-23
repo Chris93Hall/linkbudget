@@ -29,6 +29,8 @@ budget.add_component(SignalSource('Noise source',
                                   signal_power = 0.0,
                                   noise_power = 1.0))
 
-budget.add_component(SubBandTune(input_bandwidth=10e6, output_bandwidth=2e6))
+budget.add_component(SubBandTune(input_lower_freq=10e6, input_upper_freq=20e6,
+                                 output_lower_freq=15.5e6, output_upper_freq=16.5e6,
+                                 signal_lower_freq=15e6, signal_upper_freq=17e6))
 
 budget.publish()                                        

@@ -4,34 +4,50 @@ publishers.py
 
 from . import convert
 
+def pad_string(string, length, side='left'):
+    string = str(string)
+    str_len = len(string)
+    if str_len >= length:
+        return string
+
+    rem_length = length - str_len
+    if side != 'left':
+        return string + (' ' * rem_length) 
+    return (' ' * rem_length) + string
+
+def trunc_float(flt):
+    flt = f'{flt:4f}'
+    return float(flt)
+
 class StdOutPublisher:
     def __init__(self):
         pass
 
     def publish_summary(self, data_list):
-        print('-'*40)
-        print('      LINK BUDGET SUMMARY')
-        print('-'*40)
-        print('   | Name | Signal Power Out | Noise Power Out | Signal Gain | Noise Gain | SNR |')
+        print('-'*120)
+        print('|      LINK BUDGET SUMMARY')
+        print('-'*120)
+        print('|    Name           | Signal Power Out          | Noise Power Out | Signal Gain     | Noise Gain | SNR                 |')
+        print('-'*120)
         for index, data, in enumerate(data_list):
-            name = data['name']
-            sig_power = data['signal_power_in']
-            noise_power = data['noise_power_in']
-            sig_power_out = data['signal_power_out']
-            noise_power_out = data['noise_power_out']
-            noise_gain = convert.linear_to_db(data['noise_gain'])
-            signal_gain = convert.linear_to_db(data['signal_gain'])
-            snr = convert.linear_to_db(data['snr'])
+            name = pad_string(data['name'], 15, side='right')
+            #sig_power = pad_string(trunc_float(data['signal_power_in']), 30)
+            noise_power = pad_string(data['noise_power_in'], 15)
+            sig_power_out = pad_string(data['signal_power_out'], 25)
+            noise_power_out = pad_string(data['noise_power_out'], 15)
+            noise_gain = pad_string(trunc_float(convert.linear_to_db(data['noise_gain'])), 10)
+            signal_gain = pad_string(trunc_float(convert.linear_to_db(data['signal_gain'])), 15)
+            snr = pad_string(trunc_float(convert.linear_to_db(data['snr'])), 15)
             description = data['description']
             print(f' {index + 1}. {name} | {sig_power_out} | {noise_power_out} | {signal_gain} | {noise_gain} | {snr}')
             print(f'        {description}')
 
     def publish_detailed(self, data_list):
-        print('-'*40)
-        print('      DETAILED LINK BUDGET REPORT')
-        print('-'*40)
+        print('-'*120)
+        print('|      DETAILED LINK BUDGET REPORT')
+        print('-'*120)
         for index, data, in enumerate(data_list):
-            print('-'*40)
+            print('-'*120)
             print(f' {index + 1}. {data["name"]}')
             for key in data.keys():
                 pretty_key = key.replace('_', ' ')
