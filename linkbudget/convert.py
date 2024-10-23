@@ -11,3 +11,12 @@ def linear_to_db(val):
 
 def db_to_linear(val):
     return 10.0**(val / 10.0)
+
+def scale_hertz(freq):
+    if freq > 1e3 and freq < 1e6:
+        return freq / 1e3, 'kHz'
+    if freq > 1e6 and freq < 1e9:
+        return freq / 1e6, 'MHz'
+    if freq > 1e9:
+        return freq / 1e9, 'GHz'
+    return freq, 'Hz'
