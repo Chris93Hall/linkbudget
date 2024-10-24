@@ -32,9 +32,9 @@ class StdOutPublisher:
         for index, data, in enumerate(data_list):
             name = pad_string(data['name'], 15, side='right')
             #sig_power = pad_string(trunc_float(data['signal_power_in']), 30)
-            noise_power = pad_string(data['noise_power_in'], 15)
+            #noise_power = pad_string(data['noise_power_in'], 15)
             sig_power_out = pad_string(data['signal_power_out'], 25)
-            noise_power_out = pad_string(data['noise_power_out'], 15)
+            noise_power_out = pad_string(trunc_float(data['noise_power_out']), 15)
             noise_gain = pad_string(trunc_float(convert.linear_to_db(data['noise_gain'])), 10)
             signal_gain = pad_string(trunc_float(convert.linear_to_db(data['signal_gain'])), 15)
             snr = pad_string(trunc_float(convert.linear_to_db(data['snr'])), 15)

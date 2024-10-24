@@ -122,15 +122,25 @@ class Gain(Component):
         return data_dict
 
 class QuantizationNoise:
-    def __init__(self, total_bits=12, utilized_bits=10):
+    def __init__(self, name='Quantization noise', description='',  total_bits=12, utilized_bits=10):
+        self.name = name
+        self.description = description
         self.total_bits = total_bits
         self.utilized_bits = utilized_bits
         self.dynamic_range = 10.0
     
     def propagate_signal(self, signal_power, noise_power):
-        total_power = signal_power + noise_power    
-        total_range = np.sqrt(total_power)
-        lsb = 1.0 / self.total_bits ** 2
+        total_power = np.sqrt(signal_power**2 + noise_power**2)
+        num_levels = self.total_bits ** 2
+        quant_noise = (total_power / num_levels) / np.sqrt(12.0)
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power,
+                     'noise_power_out': np.sqrt(noise_power**2 + quant_noise**2)}
+        return data_dict
+
 
 class SubBandTune:
     def __init__(self, name='Sub-band Tuner', description='', input_upper_freq=1e6,
