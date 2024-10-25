@@ -122,23 +122,28 @@ class Gain(Component):
         return data_dict
 
 class QuantizationNoise:
-    def __init__(self, name='Quantization noise', description='',  total_bits=12, utilized_bits=10):
+    def __init__(self, name='Quantization noise', description='',  total_bits=12, headroom_db=0):
         self.name = name
         self.description = description
         self.total_bits = total_bits
-        self.utilized_bits = utilized_bits
-        self.dynamic_range = 10.0
+        self.headroom_db = headroom_db
     
     def propagate_signal(self, signal_power, noise_power):
-        total_power = np.sqrt(signal_power**2 + noise_power**2)
-        num_levels = self.total_bits ** 2
-        quant_noise = (total_power / num_levels) / np.sqrt(12.0)
+        total_power = signal_power + noise_power # assume uncorrelated noise
+        headroom_bits = np.log2(10.0**(self.headroom_db/10.0))
+        effective_bits = self.total_bits - headroom_bits
+        quant_noise = total_power * (1.0 / 2.0**effective_bits) / 12.0
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power,
-                     'noise_power_out': np.sqrt(noise_power**2 + quant_noise**2)}
+                     'noise_power_out': noise_power + quant_noise,
+                     'quantization_noise': quant_noise,
+                     'total_bits': self.total_bits,
+                     'effective_bits': effective_bits,
+                     'headroom_db': self.headroom_db,
+                     'headroom_bits': headroom_bits}
         return data_dict
 
 

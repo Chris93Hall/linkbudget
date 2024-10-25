@@ -37,7 +37,7 @@ budget.add_component(linkbudget.SignalSource(
 
 budget.add_component(linkbudget.QuantizationNoise(
     total_bits = 12.0,
-    utilized_bits = 10.0))
+    headroom_db = 10.0))
 
 budget.add_component(linkbudget.SubBandTune(
     input_lower_freq=10e6,
