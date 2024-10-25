@@ -221,7 +221,22 @@ class RFComponent:
                      'gain': self.gain}
         return data_dict
 
-
+class RadarCrossSection:
+    def __init__(self, name='RCS', description='', rcs_db=0.0):
+        self.name = name
+        self.description = description
+        self.rcs_db = rcs_db
+    
+    def propagate_signal(self, signal_power, noise_power):
+        rcs_linear = convert.db_to_linear(self.rcs_db)
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power * rcs_linear,
+                     'noise_power_out': noise_power * rcs_linear,
+                     'rcs_db': self.rcs_db}
+        return data_dict
 
 class Integrate:
     pass
