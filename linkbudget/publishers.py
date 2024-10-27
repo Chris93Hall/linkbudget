@@ -23,9 +23,14 @@ def float_to_bounded_str(val, str_length=8):
     val_str = str(val)
     if len(val_str) <= str_length:
         return val_str
-    val_str = f'{val.e}'
-    if 'e' in val_str:
-        frac, exp = val_str.split('e')
+    val_str = f'{val.e}' # force scientific notarion
+    frac, exp = val_str.split('e')
+    exp_length = len(exp)
+    frac_length = str_length - exp_length - 3
+    if frac[0] == '-':
+        frac_length -= 1
+    # if frac_length is 0 or -1, we can just use the whole number
+
     return val
 
 class StdOutPublisher:
