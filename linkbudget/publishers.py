@@ -30,6 +30,8 @@ def float_to_bounded_str(val, str_length=8):
     if frac[0] == '-':
         frac_length -= 1
     # if frac_length is 0 or -1, we can just use the whole number
+    if frac_length in [0, -1]:
+        return frac.split('.')[0] + 'e' + exp
 
     return val
 
