@@ -19,10 +19,10 @@ def trunc_float(flt):
     flt = f'{flt:4f}'
     return float(flt)
 
-def float_to_bounded_str(val):
+def float_to_bounded_str(val, str_length=8):
     val = str(val)
     if 'e' in val:
-        pass
+        frac, exp = val.split('e')
     return val
 
 class StdOutPublisher:
