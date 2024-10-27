@@ -20,9 +20,12 @@ def trunc_float(flt):
     return float(flt)
 
 def float_to_bounded_str(val, str_length=8):
-    val = str(val)
-    if 'e' in val:
-        frac, exp = val.split('e')
+    val_str = str(val)
+    if len(val_str) <= str_length:
+        return val_str
+    val_str = f'{val.e}'
+    if 'e' in val_str:
+        frac, exp = val_str.split('e')
     return val
 
 class StdOutPublisher:
