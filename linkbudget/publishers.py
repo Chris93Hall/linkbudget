@@ -19,6 +19,12 @@ def trunc_float(flt):
     flt = f'{flt:4f}'
     return float(flt)
 
+def float_to_bounded_str(val):
+    val = str(val)
+    if 'e' in val:
+        pass
+    return val
+
 class StdOutPublisher:
     def __init__(self):
         pass
