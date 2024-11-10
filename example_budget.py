@@ -9,8 +9,8 @@ example link budget
 import linkbudget
 
 budget = linkbudget.LinkContainer()
-#budget.install_publisher(linkbudget.StdOutPublisher())
-budget.install_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
+budget.install_publisher(linkbudget.StdOutPublisher())
+#budget.install_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
 
 budget.add_component(linkbudget.SignalSource(
     'Signal source',

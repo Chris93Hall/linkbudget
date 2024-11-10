@@ -2,6 +2,8 @@
 link_container.py
 """
 
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 from . import convert
@@ -48,14 +50,16 @@ class LinkContainer:
                 data_dict['signal_gain'] = data_dict['signal_power_out'] / data_dict['signal_power_in']
             self.data_list.append(data_dict)
 
-class Component:
+class Component(ABC):
     """
     Abstract Component
     """
+    @abstractmethod
     def __init__(self, name, description):
         self.name = name
         self.description = description
 
+    @abstractmethod
     def propagate_signal(sig_power, noise_power):
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -236,6 +240,23 @@ class RadarCrossSection:
                      'signal_power_out': signal_power * rcs_linear,
                      'noise_power_out': noise_power * rcs_linear,
                      'rcs_db': self.rcs_db}
+        return data_dict
+
+class ArrayFactor:
+    def __init__(self, name='Array Factor', description='', num_elements=1):
+        self.name = name
+        self.description = description
+        self.num_elements = num_elements
+
+    def propagate_signal(self, signal_power, noise_power):
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power * num_elements,
+                     'noise_power_out': noise_power * num_elements,
+                     'number_of_elements': num_elements,
+                     'gain': f'{10.0*np.log10(num_elements)} dB'}
         return data_dict
 
 class Integrate:

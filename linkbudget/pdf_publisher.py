@@ -2,6 +2,7 @@
 import os
 
 from . import convert
+from .publishers import Publisher
 
 from fpdf import FPDF
 
@@ -43,7 +44,7 @@ def float_to_bounded_str(val, str_length=12):
     return frac + 'e' + exp
  
 
-class PDFPublisher:
+class PDFPublisher(Publisher):
     def __init__(self, fpath):
         self.fpath = fpath
         self.pdf = FPDF(orientation="P", unit="mm", format="A4")

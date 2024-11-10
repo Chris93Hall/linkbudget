@@ -2,6 +2,7 @@
 publishers.py
 """
 
+from abc import ABC, abstractmethod
 from . import convert
 
 def pad_string(string, length, side='left'):
@@ -40,8 +41,17 @@ def float_to_bounded_str(val, str_length=12):
 
     frac = frac[:frac_length]
     return frac + 'e' + exp
-    
-class StdOutPublisher:
+
+class Publisher(ABC):
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def publish(self):
+        pass
+
+class StdOutPublisher(Publisher):
     def __init__(self):
         pass
 
