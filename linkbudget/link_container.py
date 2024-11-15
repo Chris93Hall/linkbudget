@@ -260,6 +260,7 @@ class ArrayFactor:
         return data_dict
 
 class Integrate:
-    pass
+    def __init__(self, name='Integration', description='', timespan=1.0):
+        pass
 
 
