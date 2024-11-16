@@ -261,6 +261,17 @@ class ArrayFactor:
 
 class Integrate:
     def __init__(self, name='Integration', description='', timespan=1.0):
-        pass
+        self.name = name
+        self.description = description
+        self.timespan = timespan
 
+    def propagate_signal(self, signal_power, noise_power):
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': (signal_power**2.0) * self.timespan,
+                     'noise_power_out': noise_power,
+                     'integration_time': self.timespan}
+        return data_dict
 
