@@ -5,7 +5,7 @@ html_publisher.py
 import html as html_lib
 
 from . import convert
-from .publishers import Publisher, float_to_bounded_str
+from .publishers import Publisher, float_to_bounded_str, label_with_units
 
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="en">
@@ -34,7 +34,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <h2>Summary</h2>
 <table>
 <thead>
-<tr><th>#</th><th>Component</th><th>Signal Power Out</th><th>Noise Power Out</th>
+<tr><th>#</th><th>Component</th><th>Signal Power Out ({power_units})</th><th>Noise Power Out ({power_units})</th>
 <th>Signal Gain (dB)</th><th>Noise Gain (dB)</th><th>SNR (dB)</th></tr>
 </thead>
 <tbody>
@@ -70,11 +70,11 @@ class HTMLPublisher(Publisher):
                 f'<td>{signal_gain}</td><td>{noise_gain}</td><td>{snr}</td></tr>')
         return '\n'.join(rows)
 
-    def _detail_sections(self, data_list):
+    def _detail_sections(self, data_list, power_units):
         sections = []
         for index, data in enumerate(data_list):
             field_rows = '\n'.join(
-                f'<tr><td>{html_lib.escape(key.replace("_", " "))}</td>'
+                f'<tr><td>{html_lib.escape(label_with_units(key, power_units))}</td>'
                 f'<td>{html_lib.escape(str(value))}</td></tr>'
                 for key, value in data.items())
             name = html_lib.escape(str(data['name']))
@@ -83,10 +83,11 @@ class HTMLPublisher(Publisher):
                 f'<table class="detail-table">{field_rows}</table></div>')
         return '\n'.join(sections)
 
-    def publish(self, data_list):
+    def publish(self, data_list, power_units='W'):
         html_doc = PAGE_TEMPLATE.format(
             title=html_lib.escape(self.title),
+            power_units=html_lib.escape(power_units),
             summary_rows=self._summary_rows(data_list),
-            detail_sections=self._detail_sections(data_list))
+            detail_sections=self._detail_sections(data_list, power_units))
         with open(self.fpath, 'w') as f:
             f.write(html_doc)

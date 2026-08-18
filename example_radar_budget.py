@@ -1,8 +1,8 @@
 """
 example_radar_budget.py
 
-A more complete example: an X-band monostatic pulse-doppler surveillance
-radar link budget, from transmitter output through the receive chain to a
+A more complete example:
+Radar link budget, from transmitter output through the receive chain to a
 coherently-integrated detection SNR. Exercises every component in the
 linkbudget package and publishes an HTML report.
 """

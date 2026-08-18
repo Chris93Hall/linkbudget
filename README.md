@@ -61,16 +61,17 @@ python example_radar_budget.py   # exercises every component, writes example_rad
 The container that holds the chain of components and drives the computation.
 
 ```python
-budget = linkbudget.LinkContainer()
+budget = linkbudget.LinkContainer(power_units='W')  # 'W' (watts) is the default
 budget.install_publisher(linkbudget.StdOutPublisher())  # optional, this is the default
 budget.add_component(...)                                 # add as many as needed, in order
 budget.publish()                                           # computes and publishes the result
 ```
 
+- `power_units` — a display label for whatever **linear** units your `signal_power`/`noise_power` values are actually in (e.g. `'W'`, `'mW'`). Every component adds/multiplies these values directly (never in log scale), so the label must name a linear unit, not a dB-referenced one like `'dBm'`/`'dBW'` — those would be inconsistent with the actual arithmetic. It's purely cosmetic: it's passed through to the installed publisher and shown in power-related table headers and detailed-report field labels, but doesn't rescale any numbers — pick units consistently across every component you add (e.g. `ThermalNoise`'s `k·T·B` is always in watts, so if you use it, keep everything else in watts too).
 - `add_component(component)` — appends a component to the chain.
 - `install_publisher(publisher)` — sets how results are output (default is `StdOutPublisher`).
 - `compute()` — runs signal/noise power through each component in order, computing signal gain, noise gain, and SNR at every stage. Called automatically by `publish()`.
-- `publish()` — calls `compute()` then hands the resulting data to the installed publisher.
+- `publish()` — calls `compute()` then hands the resulting data, along with `power_units`, to the installed publisher.
 
 Components are evaluated **in the order they were added**; each component's output signal/noise power becomes the next component's input.
 
@@ -105,13 +106,15 @@ Every component is constructed with a `name` and `description` (used for reporti
 
 ### Publishers
 
-Publishers control how the computed link budget is reported.
+Publishers control how the computed link budget is reported. All three built-in publishers label power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)").
 
 - **`StdOutPublisher`** — prints a summary table and a detailed per-stage report to the console. This is the default publisher if none is installed.
-- **`PDFPublisher(fpath)`** — writes the same summary + detailed report to a PDF file at `fpath` (requires the `fpdf2` package).
+- **`PDFPublisher(fpath, title='Link Budget Report')`** — writes the same summary + detailed report to a styled PDF file at `fpath` (requires the `fpdf2` package), visually matching `HTMLPublisher`'s layout and colors (striped tables, a dark header row, a title banner), with automatic multi-page pagination.
 - **`HTMLPublisher(fpath, title='Link Budget Report')`** — writes a single self-contained HTML file at `fpath` with a styled summary table and a detailed per-component breakdown.
 
 ```python
+budget = linkbudget.LinkContainer(power_units='mW')
+
 budget.install_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
 budget.publish()
 
@@ -119,7 +122,7 @@ budget.install_publisher(linkbudget.HTMLPublisher('example_link_budget.html'))
 budget.publish()
 ```
 
-You can write your own publisher by subclassing `linkbudget.publishers.Publisher` and implementing `publish(data_list)`, where `data_list` is a list of per-component dicts (each containing at least `name`, `description`, `signal_power_in/out`, `noise_power_in/out`, `signal_gain`, `noise_gain`, and `snr`, plus any component-specific fields).
+You can write your own publisher by subclassing `linkbudget.publishers.Publisher` and implementing `publish(data_list, power_units='W')`, where `data_list` is a list of per-component dicts (each containing at least `name`, `description`, `signal_power_in/out`, `noise_power_in/out`, `signal_gain`, `noise_gain`, and `snr`, plus any component-specific fields) and `power_units` is the container's display label. `linkbudget.publishers.label_with_units(key, power_units)` is available if you want the same "append units to known power fields" behavior the built-in publishers use.
 
 ### Utilities
 

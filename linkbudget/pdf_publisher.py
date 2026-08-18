@@ -1,118 +1,115 @@
-
-import os
-
-from . import convert
-from .publishers import Publisher
+"""
+pdf_publisher.py
+"""
 
 from fpdf import FPDF
+from fpdf.fonts import FontFace
 
-def pad_string(string, length, side='left'):
-    string = str(string)
-    str_len = len(string)
-    if str_len >= length:
-        return string
+from . import convert
+from .publishers import Publisher, label_with_units, float_to_bounded_str
 
-    rem_length = length - str_len
-    if side != 'left':
-        return string + (' ' * rem_length) 
-    return (' ' * rem_length) + string
+HEADER_FILL = (45, 55, 72)     # matches HTMLPublisher's thead background (#2d3748)
+HEADER_TEXT = 255              # white
+STRIPE_FILL = (242, 242, 242)  # matches HTMLPublisher's even-row background (#f2f2f2)
+BORDER_COLOR = (221, 221, 221) # matches HTMLPublisher's border color (#ddd)
 
-def trunc_float(flt):
-    flt = f'{flt:4f}'
-    return float(flt)
-
-def float_to_bounded_str(val, str_length=12):
-    val_str = str(val)
-    if len(val_str) <= str_length:
-        return val_str
-
-    val_str = f'{val:e}' # force scientific notarion
-    if len(val_str) <= str_length:
-        return val_str
-
-    frac, exp = val_str.split('e')
-    exp_length = len(exp)
-    frac_length = str_length - exp_length - 1
-    if frac[0] == '-':
-        frac_length -= 1
-
-    # if frac_length is 0 or -1, we can just use the whole number
-    if frac_length in [0, -1]:
-        return frac.split('.')[0] + 'e' + exp
-
-    frac = frac[:frac_length]
-    return frac + 'e' + exp
- 
 
 class PDFPublisher(Publisher):
-    def __init__(self, fpath):
+    def __init__(self, fpath, title='Link Budget Report'):
         self.fpath = fpath
+        self.title = title
         self.pdf = FPDF(orientation="P", unit="mm", format="A4")
+        self.pdf.set_auto_page_break(auto=True, margin=15)
+        self.pdf.add_page()
+        self.pdf.set_draw_color(*BORDER_COLOR)
+
+    def _title_page_header(self):
+        self.pdf.set_font("helvetica", "B", 20)
+        self.pdf.set_text_color(*HEADER_FILL)
+        self.pdf.cell(0, 12, self.title, align="L", new_x="LMARGIN", new_y="NEXT")
+        self.pdf.set_draw_color(*HEADER_FILL)
+        self.pdf.set_line_width(0.6)
+        self.pdf.line(self.pdf.l_margin, self.pdf.get_y(), self.pdf.w - self.pdf.r_margin, self.pdf.get_y())
+        self.pdf.set_draw_color(*BORDER_COLOR)
+        self.pdf.set_line_width(0.2)
+        self.pdf.ln(4)
+
+    def _section_heading(self, text):
+        self.pdf.set_font("helvetica", "B", 14)
+        self.pdf.set_text_color(*HEADER_FILL)
+        self.pdf.cell(0, 10, text, new_x="LMARGIN", new_y="NEXT")
+        self.pdf.set_text_color(0, 0, 0)
+        self.pdf.ln(1)
+
+    def publish_summary(self, data_list, power_units='W'):
+        self._title_page_header()
+        self._section_heading('Summary')
+
+        headings_style = FontFace(emphasis="BOLD", color=HEADER_TEXT, fill_color=HEADER_FILL)
+        self.pdf.set_font("helvetica", '', 9)
+        with self.pdf.table(
+                col_widths=(9, 47, 26, 26, 24, 24, 24),
+                text_align=("CENTER", "LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
+                headings_style=headings_style,
+                cell_fill_color=STRIPE_FILL,
+                cell_fill_mode="ROWS",
+                borders_layout="ALL",
+                line_height=5.5,
+                padding=1.5) as table:
+            row = table.row()
+            for heading in ('#', 'Component', f'Signal Power Out ({power_units})',
+                             f'Noise Power Out ({power_units})', 'Signal Gain (dB)',
+                             'Noise Gain (dB)', 'SNR (dB)'):
+                row.cell(heading)
+
+            for index, data in enumerate(data_list):
+                row = table.row()
+                row.cell(str(index + 1))
+                name_cell = data['name']
+                if data['description']:
+                    name_cell += f"\n{data['description']}"
+                row.cell(name_cell)
+                row.cell(float_to_bounded_str(data['signal_power_out']))
+                row.cell(float_to_bounded_str(data['noise_power_out']))
+                row.cell(float_to_bounded_str(convert.linear_to_db(data['signal_gain'])))
+                row.cell(float_to_bounded_str(convert.linear_to_db(data['noise_gain'])))
+                row.cell(float_to_bounded_str(convert.linear_to_db(data['snr'])))
+
         self.pdf.add_page()
 
-    def add_header(self, text='Link Budget'):
-        self.pdf.set_font("helvetica", "B", 15)
-        # Moving cursor to the right:
-        self.pdf.cell(40)
-        # Printing title:
-        self.pdf.cell(100, 10, text, border=1, align="C")
-        # Performing a line break:
-        self.pdf.ln(20)
+    def publish_detailed(self, data_list, power_units='W'):
+        self._section_heading('Detailed Report')
 
-    def publish_summary(self, data_list):
-        self.add_header('LINK BUDGET SUMMARY')
+        for index, data in enumerate(data_list):
+            # avoid starting a component's heading right at the bottom of a
+            # page, which would immediately fragment its table
+            min_block_height = 8 + 3 * 5.5 * 2
+            if self.pdf.will_page_break(min_block_height):
+                self.pdf.add_page()
 
-        self.pdf.set_font("helvetica", 'B',  10)
-        self.pdf.cell(30, 10, "Name")
-        self.pdf.cell(35, 10, "Signal Power Out")
-        self.pdf.cell(35, 10, "Noise Power Out")
-        self.pdf.cell(35, 10, "Signal Gain (dB)")
-        self.pdf.cell(35, 10, "Noise Gain (dB)")
-        self.pdf.cell(40, 10, "SNR (dB)")
+            self.pdf.set_font("helvetica", "B", 11)
+            self.pdf.set_text_color(*HEADER_FILL)
+            self.pdf.cell(0, 8, f'{index + 1}. {data["name"]}', new_x="LMARGIN", new_y="NEXT")
+            self.pdf.set_text_color(0, 0, 0)
 
-        self.pdf.set_font("helvetica", '',  10)
-        for index, data, in enumerate(data_list):
-            self.pdf.ln(12)
-            name = data['name']
-            sig_power_out = float_to_bounded_str(data['signal_power_out'])
-            noise_power_out = float_to_bounded_str(data['noise_power_out'])
-            noise_gain = float_to_bounded_str(convert.linear_to_db(data['noise_gain']))
-            signal_gain = float_to_bounded_str(convert.linear_to_db(data['signal_gain']))
-            snr = float_to_bounded_str(convert.linear_to_db(data['snr']))
+            self.pdf.set_font("helvetica", '', 9)
+            with self.pdf.table(
+                    col_widths=(1, 2),
+                    text_align=("LEFT", "LEFT"),
+                    first_row_as_headings=False,
+                    cell_fill_color=STRIPE_FILL,
+                    cell_fill_mode="ROWS",
+                    borders_layout="ALL",
+                    line_height=5.5,
+                    padding=1.5) as table:
+                for key, value in data.items():
+                    row = table.row()
+                    row.cell(label_with_units(key, power_units))
+                    row.cell(str(value))
 
-            self.pdf.cell(35, 10, f'{index+1}. {name}')
-            self.pdf.cell(30, 10, sig_power_out)
-            self.pdf.cell(35, 10, noise_power_out)
-            self.pdf.cell(35, 10, noise_gain)
-            self.pdf.cell(35, 10, signal_gain)
-            self.pdf.cell(40, 10, snr)
+            self.pdf.ln(6)
 
-            description = data['description']
-            if description:
-                self.pdf.ln(7)
-                self.pdf.cell(10)
-                self.pdf.cell(100, 10, description)
-
-        self.pdf.add_page()
-
-    def publish_detailed(self, data_list):
-        self.add_header('DETAILED LINK BUDGET REPORT')
-        self.pdf.set_font("helvetica", '',  10)
-
-        for index, data, in enumerate(data_list):
-            self.pdf.cell(100, 10, f'{index + 1}. {data["name"]}')
-            self.pdf.ln(10)
-            for key in data.keys():
-                pretty_key = key.replace('_', ' ')
-                self.pdf.cell(10)
-                self.pdf.cell(50, 10, pretty_key)
-                self.pdf.cell(50, 10, str(data[key]))
-                self.pdf.ln(7)
-            self.pdf.ln(10)
-
-    def publish(self, data_list):
-        self.publish_summary(data_list)
-        self.publish_detailed(data_list)
+    def publish(self, data_list, power_units='W'):
+        self.publish_summary(data_list, power_units)
+        self.publish_detailed(data_list, power_units)
         self.pdf.output(self.fpath)
-
-

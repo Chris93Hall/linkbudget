@@ -10,17 +10,18 @@ from . import convert
 from . import publishers
 
 class LinkContainer:
-    def __init__(self):
+    def __init__(self, power_units='W'):
         self.components_list = []
         self.data_list = []
         self.publisher = publishers.StdOutPublisher()
+        self.power_units = power_units
 
     def install_publisher(self, publisher):
         self.publisher = publisher
 
     def publish(self):
         self.compute()
-        self.publisher.publish(self.data_list)
+        self.publisher.publish(self.data_list, power_units=self.power_units)
 
     def add_component(self, component):
         self.components_list.append(component)

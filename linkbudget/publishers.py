@@ -5,6 +5,17 @@ publishers.py
 from abc import ABC, abstractmethod
 from . import convert
 
+# fields whose values are absolute power quantities in the container's
+# power_units, as opposed to ratios, dB values, frequencies, etc.
+POWER_FIELDS = {'signal_power_in', 'signal_power_out', 'noise_power_in', 'noise_power_out',
+                 'quantization_noise', 'thermal_noise_power', 'image_noise_power'}
+
+def label_with_units(key, power_units):
+    pretty_key = key.replace('_', ' ')
+    if key in POWER_FIELDS:
+        return f'{pretty_key} ({power_units})'
+    return pretty_key
+
 def pad_string(string, length, side='left'):
     string = str(string)
     str_len = len(string)
@@ -48,18 +59,18 @@ class Publisher(ABC):
         pass
 
     @abstractmethod
-    def publish(self):
+    def publish(self, data_list, power_units='W'):
         pass
 
 class StdOutPublisher(Publisher):
     def __init__(self):
         pass
 
-    def publish_summary(self, data_list):
+    def publish_summary(self, data_list, power_units='W'):
         print('-'*120)
         print('|      LINK BUDGET SUMMARY')
         print('-'*120)
-        print('|    Name                | Signal Power Out     | Noise Power Out | Signal Gain (dB) | Noise Gain (dB) | SNR (dB)      |')
+        print(f'|    Name                | Signal Power Out ({power_units}) | Noise Power Out ({power_units}) | Signal Gain (dB) | Noise Gain (dB) | SNR (dB)      |')
         print('-'*120)
         for index, data, in enumerate(data_list):
             name = pad_string(data['name'], 20, side='right')
@@ -74,7 +85,7 @@ class StdOutPublisher(Publisher):
             print(f' {index + 1}. {name} | {sig_power_out} | {noise_power_out} | {signal_gain} | {noise_gain} | {snr}')
             print(f'        {description}')
 
-    def publish_detailed(self, data_list):
+    def publish_detailed(self, data_list, power_units='W'):
         print('-'*120)
         print('|      DETAILED LINK BUDGET REPORT')
         print('-'*120)
@@ -82,12 +93,12 @@ class StdOutPublisher(Publisher):
             print('-'*120)
             print(f' {index + 1}. {data["name"]}')
             for key in data.keys():
-                pretty_key = key.replace('_', ' ')
+                pretty_key = label_with_units(key, power_units)
                 print(f'      {pretty_key}: {data[key]}')
 
-    def publish(self, data_list):
-        self.publish_summary(data_list)
+    def publish(self, data_list, power_units='W'):
+        self.publish_summary(data_list, power_units)
         print('')
-        self.publish_detailed(data_list)
+        self.publish_detailed(data_list, power_units)
 
 
