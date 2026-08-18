@@ -11,7 +11,7 @@ import linkbudget
 
 budget = linkbudget.LinkContainer()
 budget.install_publisher(linkbudget.HTMLPublisher(
-    'example_radar_link_budget.html', title='X-band Surveillance Radar Link Budget'))
+    'example_radar_link_budget.html', title='Radar Link Budget'))
 
 RADAR_FREQUENCY = 9.5e9   # X-band, Hz
 TARGET_RANGE = 50e3       # 50 km slant range, meters
