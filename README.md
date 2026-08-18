@@ -4,15 +4,23 @@ A small Python library for building RF/communications **link budgets**. You chai
 
 ## Installation
 
-There is no packaged distribution yet — use the library directly from a clone of this repository.
+The project is packaged with a standard `pyproject.toml` (setuptools backend), so it can be installed like any Python package:
 
 ```bash
 git clone <this-repo>
 cd linkbudget
-pip install -r requirements.txt
+pip install .          # regular install
+# pip install -e .     # editable install, for local development
 ```
 
-Run scripts from the repository root so `import linkbudget` resolves to the local package.
+This pulls in `numpy` and `fpdf2` automatically. If you'd rather not install the package (e.g. just to run the examples in place), `pip install -r requirements.txt` and running scripts from the repository root also works, since `import linkbudget` then resolves to the local package directory.
+
+To build distributable artifacts (a wheel + sdist under `dist/`) without installing, e.g. to publish or hand off to someone else:
+
+```bash
+pip install build
+python -m build
+```
 
 ## Quick start
 

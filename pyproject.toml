@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkbudget"
+version = "0.1.0"
+description = "A small Python library for building RF/communications link budgets"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "chris", email = "chris93hall@gmail.com" },
+]
+dependencies = [
+    "numpy>=1.21.5",
+    "fpdf2>=2.8.1",
+]
+
+[tool.setuptools]
+packages = ["linkbudget"]
