@@ -91,16 +91,14 @@ budget.add_component(linkbudget.Mixer(
     image_reject_db=30.0,
     mode='downconvert'))
 
-budget.add_component(linkbudget.NoiseFigure(
-    'IF limiting amplifier',
-    'Near-unity-gain IF buffer stage with residual noise contribution',
-    noise_figure=2.0))
-
-budget.add_component(linkbudget.QuantizationNoise(
-    'ADC quantization noise',
-    '14-bit digitizer sampling the IF',
+budget.add_component(linkbudget.AnalogToDigitalConverter(
+    'ADC',
+    'Near-unity-gain IF buffer feeding a 14-bit digitizer sampling the IF',
+    gain_db=0.0,
+    noise_figure_db=2.0,
     total_bits=14.0,
-    headroom_db=12.0))
+    headroom_db=12.0,
+    sample_rate=50e6))
 
 budget.add_component(linkbudget.SubBandTune(
     'Digital channelizer',

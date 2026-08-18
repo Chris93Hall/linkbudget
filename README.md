@@ -9,7 +9,7 @@ There is no packaged distribution yet — use the library directly from a clone 
 ```bash
 git clone <this-repo>
 cd linkbudget
-pip install numpy fpdf2
+pip install -r requirements.txt
 ```
 
 Run scripts from the repository root so `import linkbudget` resolves to the local package.
@@ -52,7 +52,7 @@ python example_budget.py
 python example_radar_budget.py   # exercises every component, writes example_radar_link_budget.html
 ```
 
-`example_radar_budget.py` models an X-band monostatic pulse-doppler surveillance radar — transmitter, feed/pointing/polarization losses, a phased-array antenna, a two-way radar path loss to a target with a given RCS, a thermal noise floor, an LNA, a downconverting mixer, a digitizer with quantization noise, a digital channelizer, and coherent pulse integration — and publishes an HTML report via `HTMLPublisher`. It's the best single reference for how every component in the library fits into a realistic chain.
+`example_radar_budget.py` models an X-band monostatic pulse-doppler surveillance radar — transmitter, feed/pointing/polarization losses, a phased-array antenna, a two-way radar path loss to a target with a given RCS, a thermal noise floor, an LNA, a downconverting mixer, an ADC digitizing the IF, a digital channelizer, and coherent pulse integration — and publishes an HTML report via `HTMLPublisher`. It's the best single reference for how every component in the library fits into a realistic chain.
 
 ## Core concepts
 
@@ -84,7 +84,9 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `SignalSource(name, description, signal_power, noise_power)` | Injects signal and/or noise power into the chain (e.g. a transmitter, or a noise source) | `signal_power`, `noise_power` (linear, added to whatever is already in the chain) |
 | `FreeSpacePathLoss(name, description, distance, frequency)` | Applies free-space path loss | `distance` (meters), `frequency` (Hz) |
 | `Gain(name, description, gain, db=True)` | Applies a gain (or loss, if negative) to both signal and noise | `gain`, `db` (`True` for dB, `False` for linear) |
-| `QuantizationNoise(name, description, total_bits, headroom_db)` | Adds ADC quantization noise based on bit depth and headroom | `total_bits`, `headroom_db` |
+| `QuantizationNoise(name, description, total_bits, headroom_db)` | Adds quantization noise based on bit depth and headroom | `total_bits`, `headroom_db` |
+| `AnalogToDigitalConverter(name, description, gain_db, noise_figure_db, total_bits, headroom_db, sample_rate)` | An ADC: input buffer gain/noise figure, then quantization noise, in one step. Equivalent to `RFComponent` followed by `QuantizationNoise` | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, optional `sample_rate` (Hz, informational) |
+| `DigitalToAnalogConverter(name, description, total_bits, headroom_db, gain_db, noise_figure_db, sample_rate)` | A DAC: quantization noise, then output driver gain/noise figure, in one step (reverse order of `AnalogToDigitalConverter`). Equivalent to `QuantizationNoise` followed by `RFComponent` | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, optional `sample_rate` (Hz, informational) |
 | `SubBandTune(name, description, input_lower_freq, input_upper_freq, signal_lower_freq, signal_upper_freq, output_lower_freq, output_upper_freq)` | Models filtering/retuning to a sub-band, reducing signal and noise bandwidth accordingly | frequency band edges (Hz) |
 | `RadarCrossSection(name, description, rcs_db)` | Applies a radar cross-section scaling factor as a plain dB power multiplier | `rcs_db` |
 | `RadarPathLoss(name, description, distance / tx_distance+rx_distance, frequency, rcs_db)` | Correct two-way radar path loss in one step: `λ²·σ / ((4π)³·R_tx²·R_rx²)` | `distance` or `tx_distance`+`rx_distance`, `frequency` (Hz), `rcs_db` (dB relative to 1 m²) |

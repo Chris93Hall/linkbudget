@@ -5,7 +5,7 @@ html_publisher.py
 import html as html_lib
 
 from . import convert
-from .publishers import Publisher, float_to_bounded_str, label_with_units
+from .publishers import Publisher, float_to_bounded_str, label_with_units, format_number
 
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="en">
@@ -75,7 +75,7 @@ class HTMLPublisher(Publisher):
         for index, data in enumerate(data_list):
             field_rows = '\n'.join(
                 f'<tr><td>{html_lib.escape(label_with_units(key, power_units))}</td>'
-                f'<td>{html_lib.escape(str(value))}</td></tr>'
+                f'<td>{html_lib.escape(format_number(value))}</td></tr>'
                 for key, value in data.items())
             name = html_lib.escape(str(data['name']))
             sections.append(

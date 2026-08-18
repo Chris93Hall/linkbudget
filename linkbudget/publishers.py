@@ -2,6 +2,7 @@
 publishers.py
 """
 
+import math
 from abc import ABC, abstractmethod
 from . import convert
 
@@ -31,27 +32,34 @@ def trunc_float(flt):
     flt = f'{flt:4f}'
     return float(flt)
 
-def float_to_bounded_str(val, str_length=12):
-    val_str = str(val)
+def format_number(val, sig_figs=6):
+    """
+    Format a number to at most `sig_figs` significant figures, choosing
+    between fixed-point and scientific notation based on its magnitude
+    (like printf's %g) rather than the length of its default string
+    representation -- this avoids both spuriously switching to scientific
+    notation for floating-point noise (e.g. 2.9999999999999996 instead of
+    3) and needlessly spelling out very large/small magnitudes in full.
+    """
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return str(val)
+    if math.isnan(val) or math.isinf(val):
+        return str(val)
+    if val == 0:
+        return '0.0'
+    return f'{float(val):.{sig_figs}g}'
+
+def float_to_bounded_str(val, str_length=12, sig_figs=6):
+    val_str = format_number(val, sig_figs)
     if len(val_str) <= str_length:
         return val_str
 
-    val_str = f'{val:e}' # force scientific notarion
-    if len(val_str) <= str_length:
-        return val_str
-
-    frac, exp = val_str.split('e')
-    exp_length = len(exp)
-    frac_length = str_length - exp_length - 1
-    if frac[0] == '-':
-        frac_length -= 1
-
-    # if frac_length is 0 or -1, we can just use the whole number
-    if frac_length in [0, -1]:
-        return frac.split('.')[0] + 'e' + exp
-
-    frac = frac[:frac_length]
-    return frac + 'e' + exp
+    # still too long (e.g. a very large exponent) -- shrink precision to fit
+    for figs in range(sig_figs - 1, 0, -1):
+        val_str = format_number(val, figs)
+        if len(val_str) <= str_length:
+            return val_str
+    return val_str
 
 class Publisher(ABC):
     @abstractmethod
@@ -94,7 +102,7 @@ class StdOutPublisher(Publisher):
             print(f' {index + 1}. {data["name"]}')
             for key in data.keys():
                 pretty_key = label_with_units(key, power_units)
-                print(f'      {pretty_key}: {data[key]}')
+                print(f'      {pretty_key}: {format_number(data[key])}')
 
     def publish(self, data_list, power_units='W'):
         self.publish_summary(data_list, power_units)

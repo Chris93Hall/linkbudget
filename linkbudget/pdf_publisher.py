@@ -6,7 +6,7 @@ from fpdf import FPDF
 from fpdf.fonts import FontFace
 
 from . import convert
-from .publishers import Publisher, label_with_units, float_to_bounded_str
+from .publishers import Publisher, label_with_units, float_to_bounded_str, format_number
 
 HEADER_FILL = (45, 55, 72)     # matches HTMLPublisher's thead background (#2d3748)
 HEADER_TEXT = 255              # white
@@ -105,7 +105,7 @@ class PDFPublisher(Publisher):
                 for key, value in data.items():
                     row = table.row()
                     row.cell(label_with_units(key, power_units))
-                    row.cell(str(value))
+                    row.cell(format_number(value))
 
             self.pdf.ln(6)
 

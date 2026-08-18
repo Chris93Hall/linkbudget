@@ -152,6 +152,85 @@ class QuantizationNoise:
         return data_dict
 
 
+class AnalogToDigitalConverter(Component):
+    """
+    Analog-to-digital converter: an input buffer/driver stage (gain and
+    noise figure) followed by quantization noise from the converter's
+    resolution and headroom, in a single step. Internally composes
+    RFComponent (gain_db, noise_figure_db) with QuantizationNoise
+    (total_bits, headroom_db), so its noise behavior matches using those
+    two components back-to-back.
+    """
+    def __init__(self, name='ADC', description='', gain_db=0.0, noise_figure_db=0.0,
+                 total_bits=12.0, headroom_db=0.0, sample_rate=None):
+        self.name = name
+        self.description = description
+        self.gain_db = gain_db
+        self.noise_figure_db = noise_figure_db
+        self.total_bits = total_bits
+        self.headroom_db = headroom_db
+        self.sample_rate = sample_rate
+        self._input_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db)
+        self._quantizer = QuantizationNoise(total_bits=total_bits, headroom_db=headroom_db)
+
+    def propagate_signal(self, signal_power, noise_power):
+        stage1 = self._input_stage.propagate_signal(signal_power, noise_power)
+        stage2 = self._quantizer.propagate_signal(stage1['signal_power_out'], stage1['noise_power_out'])
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': stage2['signal_power_out'],
+                     'noise_power_out': stage2['noise_power_out'],
+                     'gain_db': self.gain_db,
+                     'noise_figure_db': self.noise_figure_db,
+                     'total_bits': self.total_bits,
+                     'effective_bits': stage2['effective_bits'],
+                     'headroom_db': self.headroom_db,
+                     'headroom_bits': stage2['headroom_bits'],
+                     'quantization_noise': stage2['quantization_noise'],
+                     'sample_rate': self.sample_rate}
+        return data_dict
+
+class DigitalToAnalogConverter(Component):
+    """
+    Digital-to-analog converter: quantization noise from the converter's
+    output resolution and headroom, followed by an output driver stage
+    (gain and noise figure), in a single step -- the reverse ordering of
+    AnalogToDigitalConverter. Internally composes QuantizationNoise
+    (total_bits, headroom_db) with RFComponent (gain_db, noise_figure_db).
+    """
+    def __init__(self, name='DAC', description='', total_bits=12.0, headroom_db=0.0,
+                 gain_db=0.0, noise_figure_db=0.0, sample_rate=None):
+        self.name = name
+        self.description = description
+        self.total_bits = total_bits
+        self.headroom_db = headroom_db
+        self.gain_db = gain_db
+        self.noise_figure_db = noise_figure_db
+        self.sample_rate = sample_rate
+        self._quantizer = QuantizationNoise(total_bits=total_bits, headroom_db=headroom_db)
+        self._output_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db)
+
+    def propagate_signal(self, signal_power, noise_power):
+        stage1 = self._quantizer.propagate_signal(signal_power, noise_power)
+        stage2 = self._output_stage.propagate_signal(stage1['signal_power_out'], stage1['noise_power_out'])
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': stage2['signal_power_out'],
+                     'noise_power_out': stage2['noise_power_out'],
+                     'total_bits': self.total_bits,
+                     'effective_bits': stage1['effective_bits'],
+                     'headroom_db': self.headroom_db,
+                     'headroom_bits': stage1['headroom_bits'],
+                     'quantization_noise': stage1['quantization_noise'],
+                     'gain_db': self.gain_db,
+                     'noise_figure_db': self.noise_figure_db,
+                     'sample_rate': self.sample_rate}
+        return data_dict
+
 class SubBandTune:
     def __init__(self, name='Sub-band Tuner', description='', input_upper_freq=1e6,
                  input_lower_freq=0.0, signal_upper_freq=4e6, signal_lower_freq=2e6,
