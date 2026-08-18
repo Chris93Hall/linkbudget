@@ -13,7 +13,7 @@ pip install .          # regular install
 # pip install -e .     # editable install, for local development
 ```
 
-This pulls in `numpy` and `fpdf2` automatically. If you'd rather not install the package (e.g. just to run the examples in place), `pip install -r requirements.txt` and running scripts from the repository root also works, since `import linkbudget` then resolves to the local package directory.
+This pulls in `numpy` and `fpdf2` automatically. If you'd rather not install the package, `pip install -r requirements.txt` plus running scripts from the repository root also works, since `import linkbudget` then resolves to the local package directory — but the `examples/` scripts live one directory down (see below), so with this route you'd need `PYTHONPATH=. python examples/example_budget.py` from the repository root, rather than plain `python examples/example_budget.py`.
 
 To build distributable artifacts (a wheel + sdist under `dist/`) without installing, e.g. to publish or hand off to someone else:
 
@@ -51,12 +51,15 @@ budget.add_component(linkbudget.Gain(
 budget.publish()
 ```
 
-This prints a summary table (per-stage signal/noise power, gain, and SNR) followed by a detailed report with every field each component produced. See `example_budget.py` for a fuller example that also includes a noise source, quantization noise, and a sub-band tuner.
+This prints a summary table (per-stage signal/noise power, gain, and SNR) followed by a detailed report with every field each component produced. See `examples/example_budget.py` for a fuller example that also includes a noise source, quantization noise, and a sub-band tuner.
 
-Run the examples directly:
+## Examples
+
+The `examples/` directory has runnable scripts (install the package first — see Installation). Run them from inside `examples/` so their output files land alongside the scripts rather than wherever you happened to invoke Python from:
 
 ```bash
-python example_budget.py
+cd examples
+python example_budget.py         # writes example_link_budget.pdf
 python example_radar_budget.py   # exercises every component, writes example_radar_link_budget.html
 ```
 
