@@ -84,6 +84,14 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `SubBandTune(name, description, input_lower_freq, input_upper_freq, signal_lower_freq, signal_upper_freq, output_lower_freq, output_upper_freq)` | Models filtering/retuning to a sub-band, reducing signal and noise bandwidth accordingly | frequency band edges (Hz) |
 | `RadarCrossSection(name, description, rcs_db)` | Applies a radar cross-section scaling factor (e.g. for radar link budgets) | `rcs_db` |
 | `ArrayFactor(name, description, num_elements)` | Applies antenna array gain from element count | `num_elements` |
+| `Mixer(name, description, lo_frequency, rf_frequency, conversion_loss_db, noise_figure_db, mode, image_reject_db)` | Frequency-converts the signal (up/down-conversion against an LO), applying conversion loss/gain and noise figure | `lo_frequency`/`rf_frequency` (Hz), `conversion_loss_db`, `mode` (`'downconvert'` or `'upconvert'`), optional `noise_figure_db` and `image_reject_db` |
+| `ThermalNoise(name, description, temperature_k, bandwidth)` | Adds a physically-computed thermal noise floor (`k * T * B`) to the noise power | `temperature_k` (Kelvin, default 290), `bandwidth` (Hz) |
+| `ImplementationLoss(name, description, cable_loss_db, pointing_loss_db, polarization_loss_db, other_loss_db)` | Degrades signal only (noise unaffected), modeling aggregate implementation margin loss | loss terms in dB, summed into `total_loss_db` |
+| `CableLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single cable loss term | `loss_db` |
+| `PointingLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single pointing loss term | `loss_db` |
+| `PolarizationLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single polarization loss term | `loss_db` |
+
+`CableLoss`, `PointingLoss`, and `PolarizationLoss` are thin subclasses of `ImplementationLoss` — each just sets one of its loss terms, so you can add them individually to a chain instead of bundling all loss sources into a single `ImplementationLoss` component. They share its signal-only degradation behavior.
 
 Additional components (`NoiseFigure`, `RFComponent`, `Integrate`) are defined in `linkbudget.link_container` but are not yet exposed from the top-level `linkbudget` package; import them directly, e.g. `from linkbudget.link_container import NoiseFigure`.
 
@@ -115,3 +123,6 @@ You can write your own publisher by subclassing `linkbudget.publishers.Publisher
 - Power values are unitless/linear unless a component specifically documents dB (e.g. `Gain(db=True)`, `rcs_db`, `headroom_db`).
 - SNR and gains are reported in dB in the summary output (converted internally via `convert.linear_to_db`).
 - Divide-by-zero cases (e.g. zero noise power) are handled by treating the ratio as infinite (`np.inf`).
+- `ThermalNoise` computes an absolute noise power in watts (`k * T * B`, using Boltzmann's constant). For it to be physically meaningful alongside other components, signal/noise power values throughout the chain should be in watts.
+- `ImplementationLoss` only attenuates the signal (noise is left untouched), matching the conventional link-budget usage of "implementation loss" as an SNR/margin penalty rather than a physical RF attenuator. To model a physical attenuator that reduces signal and noise together, use a negative-dB `Gain` instead.
+- `Mixer` attenuates/amplifies signal by `conversion_loss_db` and degrades SNR by exactly `noise_figure_db` (which defaults to `conversion_loss_db`, the standard rule of thumb for a passive mixer). If `rf_frequency` is supplied, the resulting `if_frequency` is reported (`rf ± lo` depending on `mode`). If `image_reject_db` is supplied, extra noise folded in from the unrejected image band is added on top of the noise figure; omit it (default `None`) to assume an ideal, fully image-rejected mixer.

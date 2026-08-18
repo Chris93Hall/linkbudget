@@ -4,6 +4,8 @@ convert.py
 
 import numpy as np
 
+BOLTZMANN_CONSTANT = 1.380649e-23  # joules per kelvin
+
 def linear_to_db(val):
     if val == 0.0:
         return -np.inf
