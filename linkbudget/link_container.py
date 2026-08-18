@@ -252,13 +252,12 @@ class NoiseFigure:
 
     def propagate_signal(self, signal_power, noise_power):
         noise_factor = 10.0**(self.noise_figure/10.0)
-        added_noise_power = noise_power * (noise_factor + 1)
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power,
-                     'noise_power_out': noise_power + added_noise_power,
+                     'noise_power_out': noise_power * noise_factor,
                      'noise_figure': self.noise_figure,
                      'noise_factor': noise_factor}
         return data_dict
@@ -273,13 +272,12 @@ class RFComponent:
     def propagate_signal(self, signal_power, noise_power):
         noise_factor = 10.0**(self.noise_figure/10.0)
         gain_linear = 10.0**(self.gain/10.0)
-        added_noise_power = noise_power * gain * (noise_factor + 1)
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power * gain_linear,
-                     'noise_power_out': (noise_power * gain_linear) + added_noise_power,
+                     'noise_power_out': noise_power * gain_linear * noise_factor,
                      'noise_figure': self.noise_figure,
                      'noise_factor': noise_factor,
                      'gain': self.gain}
@@ -302,6 +300,99 @@ class RadarCrossSection:
                      'rcs_db': self.rcs_db}
         return data_dict
 
+class RadarPathLoss(Component):
+    """
+    Two-way radar path loss: transmitted signal reflected off a target with the
+    given radar cross section and returned to the receiver, computed in a single
+    physically-consistent step:
+
+        Pr / Pt = (wavelength^2 * rcs) / ((4*Pi)^3 * tx_distance^2 * rx_distance^2)
+
+    For monostatic radar (co-located transmitter/receiver), pass just
+    `distance`. Unlike chaining FreeSpacePathLoss twice around
+    RadarCrossSection, this applies the wavelength-dependent term exactly
+    once (matching the standard radar range equation) rather than once per
+    leg, which otherwise overstates the path loss by wavelength^2 / (4*Pi).
+    """
+    def __init__(self, name='Radar path (two-way)', description='', distance=None,
+                 tx_distance=None, rx_distance=None, frequency=1e9, rcs_db=0.0):
+        self.name = name
+        self.description = description
+        if distance is not None:
+            tx_distance = distance
+            rx_distance = distance
+        self.tx_distance = tx_distance
+        self.rx_distance = rx_distance
+        self.frequency = frequency
+        self.rcs_db = rcs_db
+
+    def propagate_signal(self, signal_power, noise_power):
+        wavelength = 2.99792458e8 / self.frequency
+        rcs_m2 = convert.db_to_linear(self.rcs_db)
+        path_term = ((wavelength**2 * rcs_m2)
+                     / ((4.0 * np.pi)**3 * self.tx_distance**2 * self.rx_distance**2))
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power * path_term,
+                     'noise_power_out': noise_power * path_term,
+                     'tx_distance': self.tx_distance,
+                     'rx_distance': self.rx_distance,
+                     'frequency': self.frequency,
+                     'wavelength': wavelength,
+                     'rcs_db': self.rcs_db,
+                     'rcs_m2': rcs_m2,
+                     'path_loss_db': convert.linear_to_db(1.0 / path_term)}
+        return data_dict
+
+class RadarPathLossOneWay(Component):
+    """
+    One leg of a two-way radar path (transmitter-to-target, or
+    target-to-receiver), calibrated so that chaining two of these around a
+    RadarCrossSection component reproduces the exact RadarPathLoss result:
+
+        RadarPathLossOneWay(distance=R1) -> RadarCrossSection(rcs_db) -> RadarPathLossOneWay(distance=R2)
+
+    is equivalent to:
+
+        RadarPathLoss(tx_distance=R1, rx_distance=R2, rcs_db=rcs_db)
+
+    Implements:
+
+        Pr / Pt = wavelength / ((4*Pi)^1.5 * distance^2)
+
+    so that two legs multiplied together contribute
+    wavelength^2 / ((4*Pi)^3 * R1^2 * R2^2), and RadarCrossSection's plain
+    (unitless) multiplier supplies the rcs term, together matching the
+    standard radar range equation.
+
+    This is NOT the same formula as FreeSpacePathLoss / a genuine one-way
+    antenna-to-antenna link (each leg only carries half of the total
+    wavelength-dependent term) -- for a direct, non-reflective path, use
+    FreeSpacePathLoss instead.
+    """
+    def __init__(self, name='Radar path (one-way)', description='', distance=1.0, frequency=1e9):
+        self.name = name
+        self.description = description
+        self.distance = distance
+        self.frequency = frequency
+
+    def propagate_signal(self, signal_power, noise_power):
+        wavelength = 2.99792458e8 / self.frequency
+        path_term = wavelength / ((4.0 * np.pi)**1.5 * self.distance**2)
+        data_dict = {'name': self.name,
+                     'description': self.description,
+                     'signal_power_in': signal_power,
+                     'noise_power_in': noise_power,
+                     'signal_power_out': signal_power * path_term,
+                     'noise_power_out': noise_power * path_term,
+                     'distance': self.distance,
+                     'frequency': self.frequency,
+                     'wavelength': wavelength,
+                     'path_loss_db': convert.linear_to_db(1.0 / path_term)}
+        return data_dict
+
 class ArrayFactor:
     def __init__(self, name='Array Factor', description='', num_elements=1):
         self.name = name
@@ -313,10 +404,10 @@ class ArrayFactor:
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': signal_power * num_elements,
-                     'noise_power_out': noise_power * num_elements,
-                     'number_of_elements': num_elements,
-                     'gain': f'{10.0*np.log10(num_elements)} dB'}
+                     'signal_power_out': signal_power * self.num_elements,
+                     'noise_power_out': noise_power * self.num_elements,
+                     'number_of_elements': self.num_elements,
+                     'gain': f'{10.0*np.log10(self.num_elements)} dB'}
         return data_dict
 
 class Mixer(Component):
@@ -375,6 +466,11 @@ class Mixer(Component):
         return data_dict
 
 class Integrate:
+    """
+    Coherent integration (e.g. pulse integration): builds up SNR by summing
+    `timespan` samples/pulses coherently. Signal power scales by `timespan`
+    (the coherent processing gain); noise power is unaffected.
+    """
     def __init__(self, name='Integration', description='', timespan=1.0):
         self.name = name
         self.description = description
@@ -385,7 +481,7 @@ class Integrate:
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': (signal_power**2.0) * self.timespan,
+                     'signal_power_out': signal_power * self.timespan,
                      'noise_power_out': noise_power,
                      'integration_time': self.timespan}
         return data_dict

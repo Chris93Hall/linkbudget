@@ -1,6 +1,6 @@
 # linkbudget
 
-A small Python library for building RF/communications **link budgets**. You chain together a series of components (signal sources, path loss, gains, noise figures, quantization noise, etc.), and the library propagates signal and noise power through the chain, computing gain and SNR at each stage. Results can be printed to stdout or exported to a PDF report.
+A small Python library for building RF/communications **link budgets**. You chain together a series of components (signal sources, path loss, gains, noise figures, quantization noise, etc.), and the library propagates signal and noise power through the chain, computing gain and SNR at each stage. Results can be printed to stdout, or exported to a PDF or HTML report.
 
 ## Installation
 
@@ -45,11 +45,14 @@ budget.publish()
 
 This prints a summary table (per-stage signal/noise power, gain, and SNR) followed by a detailed report with every field each component produced. See `example_budget.py` for a fuller example that also includes a noise source, quantization noise, and a sub-band tuner.
 
-Run the example directly:
+Run the examples directly:
 
 ```bash
 python example_budget.py
+python example_radar_budget.py   # exercises every component, writes example_radar_link_budget.html
 ```
+
+`example_radar_budget.py` models an X-band monostatic pulse-doppler surveillance radar — transmitter, feed/pointing/polarization losses, a phased-array antenna, a two-way radar path loss to a target with a given RCS, a thermal noise floor, an LNA, a downconverting mixer, a digitizer with quantization noise, a digital channelizer, and coherent pulse integration — and publishes an HTML report via `HTMLPublisher`. It's the best single reference for how every component in the library fits into a realistic chain.
 
 ## Core concepts
 
@@ -82,7 +85,9 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `Gain(name, description, gain, db=True)` | Applies a gain (or loss, if negative) to both signal and noise | `gain`, `db` (`True` for dB, `False` for linear) |
 | `QuantizationNoise(name, description, total_bits, headroom_db)` | Adds ADC quantization noise based on bit depth and headroom | `total_bits`, `headroom_db` |
 | `SubBandTune(name, description, input_lower_freq, input_upper_freq, signal_lower_freq, signal_upper_freq, output_lower_freq, output_upper_freq)` | Models filtering/retuning to a sub-band, reducing signal and noise bandwidth accordingly | frequency band edges (Hz) |
-| `RadarCrossSection(name, description, rcs_db)` | Applies a radar cross-section scaling factor (e.g. for radar link budgets) | `rcs_db` |
+| `RadarCrossSection(name, description, rcs_db)` | Applies a radar cross-section scaling factor as a plain dB power multiplier | `rcs_db` |
+| `RadarPathLoss(name, description, distance / tx_distance+rx_distance, frequency, rcs_db)` | Correct two-way radar path loss in one step: `λ²·σ / ((4π)³·R_tx²·R_rx²)` | `distance` or `tx_distance`+`rx_distance`, `frequency` (Hz), `rcs_db` (dB relative to 1 m²) |
+| `RadarPathLossOneWay(name, description, distance, frequency)` | One leg of a two-way radar path, calibrated so `RadarPathLossOneWay -> RadarCrossSection -> RadarPathLossOneWay` reproduces `RadarPathLoss` exactly | `distance` (meters), `frequency` (Hz) |
 | `ArrayFactor(name, description, num_elements)` | Applies antenna array gain from element count | `num_elements` |
 | `Mixer(name, description, lo_frequency, rf_frequency, conversion_loss_db, noise_figure_db, mode, image_reject_db)` | Frequency-converts the signal (up/down-conversion against an LO), applying conversion loss/gain and noise figure | `lo_frequency`/`rf_frequency` (Hz), `conversion_loss_db`, `mode` (`'downconvert'` or `'upconvert'`), optional `noise_figure_db` and `image_reject_db` |
 | `ThermalNoise(name, description, temperature_k, bandwidth)` | Adds a physically-computed thermal noise floor (`k * T * B`) to the noise power | `temperature_k` (Kelvin, default 290), `bandwidth` (Hz) |
@@ -90,10 +95,11 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `CableLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single cable loss term | `loss_db` |
 | `PointingLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single pointing loss term | `loss_db` |
 | `PolarizationLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single polarization loss term | `loss_db` |
+| `NoiseFigure(name, description, noise_figure)` | Degrades noise power (no gain applied) by a noise figure, e.g. a lossless/unity-gain noisy stage | `noise_figure` (dB) |
+| `RFComponent(name, description, gain, noise_figure)` | A generic gain block with a noise figure (e.g. an amplifier) — signal scales by `gain`, SNR degrades by `noise_figure` | `gain` (dB), `noise_figure` (dB) |
+| `Integrate(name, description, timespan)` | Coherent integration (e.g. pulse integration): signal power scales by `timespan` (the processing gain), noise is unaffected | `timespan` |
 
 `CableLoss`, `PointingLoss`, and `PolarizationLoss` are thin subclasses of `ImplementationLoss` — each just sets one of its loss terms, so you can add them individually to a chain instead of bundling all loss sources into a single `ImplementationLoss` component. They share its signal-only degradation behavior.
-
-Additional components (`NoiseFigure`, `RFComponent`, `Integrate`) are defined in `linkbudget.link_container` but are not yet exposed from the top-level `linkbudget` package; import them directly, e.g. `from linkbudget.link_container import NoiseFigure`.
 
 Every component is constructed with a `name` and `description` (used for reporting), plus its own parameters. `name`/`description` are positional in most components but keyword-only (with defaults) in a few (`QuantizationNoise`, `SubBandTune`, etc.) — check the signature if unsure.
 
@@ -103,9 +109,13 @@ Publishers control how the computed link budget is reported.
 
 - **`StdOutPublisher`** — prints a summary table and a detailed per-stage report to the console. This is the default publisher if none is installed.
 - **`PDFPublisher(fpath)`** — writes the same summary + detailed report to a PDF file at `fpath` (requires the `fpdf2` package).
+- **`HTMLPublisher(fpath, title='Link Budget Report')`** — writes a single self-contained HTML file at `fpath` with a styled summary table and a detailed per-component breakdown.
 
 ```python
 budget.install_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
+budget.publish()
+
+budget.install_publisher(linkbudget.HTMLPublisher('example_link_budget.html'))
 budget.publish()
 ```
 
@@ -126,3 +136,5 @@ You can write your own publisher by subclassing `linkbudget.publishers.Publisher
 - `ThermalNoise` computes an absolute noise power in watts (`k * T * B`, using Boltzmann's constant). For it to be physically meaningful alongside other components, signal/noise power values throughout the chain should be in watts.
 - `ImplementationLoss` only attenuates the signal (noise is left untouched), matching the conventional link-budget usage of "implementation loss" as an SNR/margin penalty rather than a physical RF attenuator. To model a physical attenuator that reduces signal and noise together, use a negative-dB `Gain` instead.
 - `Mixer` attenuates/amplifies signal by `conversion_loss_db` and degrades SNR by exactly `noise_figure_db` (which defaults to `conversion_loss_db`, the standard rule of thumb for a passive mixer). If `rf_frequency` is supplied, the resulting `if_frequency` is reported (`rf ± lo` depending on `mode`). If `image_reject_db` is supplied, extra noise folded in from the unrejected image band is added on top of the noise figure; omit it (default `None`) to assume an ideal, fully image-rejected mixer.
+- For a two-way (reflective) radar path, use `RadarPathLoss` rather than chaining `FreeSpacePathLoss` twice around `RadarCrossSection`. `FreeSpacePathLoss` bakes a wavelength-dependent receive-aperture term (`λ²/4π`) into its formula, which is correct for one hop between two antennas but not for a hop into a target (which has no antenna aperture — it just scatters based on RCS in m²). Chaining it twice imposes that aperture term a second time where it doesn't belong, overstating two-way path loss by `λ²/(4π)` (~41 dB at X-band) versus the standard radar range equation. `RadarPathLoss` applies the wavelength term exactly once, matching `Pr/Pt = λ²σ/((4π)³R_tx²R_rx²)`.
+- `RadarPathLossOneWay` is deliberately **not** the same formula as `FreeSpacePathLoss`, even though both model "a one-way hop." It implements half of `RadarPathLoss`'s wavelength term per leg (`λ/((4π)^1.5·distance²)`) specifically so that `RadarPathLossOneWay(R1) -> RadarCrossSection(rcs_db) -> RadarPathLossOneWay(R2)` composes into the exact same result as calling `RadarPathLoss(tx_distance=R1, rx_distance=R2, rcs_db=rcs_db)` in one step. Don't use `RadarPathLossOneWay` for a genuine one-way antenna-to-antenna link with no target — use `FreeSpacePathLoss` for that.
