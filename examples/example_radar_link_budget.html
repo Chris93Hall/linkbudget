@@ -40,9 +40,9 @@
 <tr><td>9</td><td>Receiver thermal noise floor<div class="desc">System noise referenced to the LNA input</div></td><td>1.79029e-16</td><td>8.00776e-15</td><td>0.0</td><td>inf</td><td>-16.5059</td></tr>
 <tr><td>10</td><td>LNA<div class="desc">Low-noise amplifier</div></td><td>1.79029e-13</td><td>1.05563e-11</td><td>30</td><td>31.2</td><td>-17.7059</td></tr>
 <tr><td>11</td><td>Downconverter<div class="desc">Downconvert RF to IF against a fixed LO</div></td><td>4.49702e-14</td><td>1.05589e-11</td><td>-6</td><td>0.00109076</td><td>-23.707</td></tr>
-<tr><td>12</td><td>ADC<div class="desc">Near-unity-gain IF buffer feeding a 14-bit digitizer sampling the IF</div></td><td>4.49702e-14</td><td>1.67361e-11</td><td>0.0</td><td>2.00035</td><td>-25.7073</td></tr>
-<tr><td>13</td><td>Digital channelizer<div class="desc">Selects the Doppler processing sub-band from the digitized IF</div></td><td>4.49702e-14</td><td>6.69446e-13</td><td>0.0</td><td>-13.9794</td><td>-11.7279</td></tr>
-<tr><td>14</td><td>Coherent pulse integration<div class="desc">Coherent integration over a 64-pulse CPI</div></td><td>2.87809e-12</td><td>6.69446e-13</td><td>18.0618</td><td>0.0</td><td>6.33389</td></tr>
+<tr><td>12</td><td>ADC<div class="desc">Near-unity-gain IF buffer feeding a 14-bit digitizer sampling the IF</div></td><td>4.49702e-14</td><td>1.67348e-11</td><td>0.0</td><td>2</td><td>-25.707</td></tr>
+<tr><td>13</td><td>Digital channelizer<div class="desc">Selects the Doppler processing sub-band from the digitized IF</div></td><td>4.49702e-14</td><td>6.69392e-13</td><td>0.0</td><td>-13.9794</td><td>-11.7276</td></tr>
+<tr><td>14</td><td>Coherent pulse integration<div class="desc">Coherent integration over a 64-pulse CPI</div></td><td>2.87809e-12</td><td>6.69392e-13</td><td>18.0618</td><td>0.0</td><td>6.33424</td></tr>
 </tbody>
 </table>
 <h2>Detailed Report</h2>
@@ -194,41 +194,41 @@
 <tr><td>signal power in (W)</td><td>4.49702e-14</td></tr>
 <tr><td>noise power in (W)</td><td>1.05589e-11</td></tr>
 <tr><td>signal power out (W)</td><td>4.49702e-14</td></tr>
-<tr><td>noise power out (W)</td><td>1.67361e-11</td></tr>
+<tr><td>noise power out (W)</td><td>1.67348e-11</td></tr>
 <tr><td>gain db</td><td>0.0</td></tr>
 <tr><td>noise figure db</td><td>2</td></tr>
 <tr><td>total bits</td><td>14</td></tr>
-<tr><td>effective bits</td><td>10.0137</td></tr>
+<tr><td>effective bits</td><td>12.0068</td></tr>
 <tr><td>headroom db</td><td>12</td></tr>
-<tr><td>headroom bits</td><td>3.98631</td></tr>
-<tr><td>quantization noise (W)</td><td>1.35265e-15</td></tr>
+<tr><td>headroom bits</td><td>1.99316</td></tr>
+<tr><td>quantization noise (W)</td><td>8.25591e-20</td></tr>
 <tr><td>sample rate</td><td>5e+07</td></tr>
-<tr><td>snr</td><td>0.00268701</td></tr>
-<tr><td>noise gain</td><td>1.58502</td></tr>
+<tr><td>snr</td><td>0.00268723</td></tr>
+<tr><td>noise gain</td><td>1.58489</td></tr>
 <tr><td>signal gain</td><td>1</td></tr></table></div>
 <div class="component"><h3>13. Digital channelizer</h3><table class="detail-table"><tr><td>name</td><td>Digital channelizer</td></tr>
 <tr><td>description</td><td>Selects the Doppler processing sub-band from the digitized IF</td></tr>
 <tr><td>signal power in (W)</td><td>4.49702e-14</td></tr>
-<tr><td>noise power in (W)</td><td>1.67361e-11</td></tr>
+<tr><td>noise power in (W)</td><td>1.67348e-11</td></tr>
 <tr><td>signal power out (W)</td><td>4.49702e-14</td></tr>
-<tr><td>noise power out (W)</td><td>6.69446e-13</td></tr>
+<tr><td>noise power out (W)</td><td>6.69392e-13</td></tr>
 <tr><td>input lower frequency</td><td>0.0</td></tr>
 <tr><td>input upper frequency</td><td>5e+07</td></tr>
 <tr><td>output lower frequency</td><td>2e+07</td></tr>
 <tr><td>output upper frequency</td><td>2.2e+07</td></tr>
 <tr><td>signal lower frequency in</td><td>2.02e+07</td></tr>
 <tr><td>signal upper frequency in</td><td>2.18e+07</td></tr>
-<tr><td>snr</td><td>0.0671752</td></tr>
+<tr><td>snr</td><td>0.0671807</td></tr>
 <tr><td>noise gain</td><td>0.04</td></tr>
 <tr><td>signal gain</td><td>1</td></tr></table></div>
 <div class="component"><h3>14. Coherent pulse integration</h3><table class="detail-table"><tr><td>name</td><td>Coherent pulse integration</td></tr>
 <tr><td>description</td><td>Coherent integration over a 64-pulse CPI</td></tr>
 <tr><td>signal power in (W)</td><td>4.49702e-14</td></tr>
-<tr><td>noise power in (W)</td><td>6.69446e-13</td></tr>
+<tr><td>noise power in (W)</td><td>6.69392e-13</td></tr>
 <tr><td>signal power out (W)</td><td>2.87809e-12</td></tr>
-<tr><td>noise power out (W)</td><td>6.69446e-13</td></tr>
+<tr><td>noise power out (W)</td><td>6.69392e-13</td></tr>
 <tr><td>integration time</td><td>64</td></tr>
-<tr><td>snr</td><td>4.29921</td></tr>
+<tr><td>snr</td><td>4.29956</td></tr>
 <tr><td>noise gain</td><td>1</td></tr>
 <tr><td>signal gain</td><td>64</td></tr></table></div>
 </body>

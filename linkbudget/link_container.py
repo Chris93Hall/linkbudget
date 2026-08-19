@@ -135,9 +135,9 @@ class QuantizationNoise:
     
     def propagate_signal(self, signal_power, noise_power):
         total_power = signal_power + noise_power # assume uncorrelated noise
-        headroom_bits = np.log2(10.0**(self.headroom_db/10.0))
+        headroom_bits = self.headroom_db / 6.0206  # 6.02 dB per bit, the standard ADC backoff rule
         effective_bits = self.total_bits - headroom_bits
-        quant_noise = total_power * (1.0 / 2.0**effective_bits) / 12.0
+        quant_noise = total_power / 4.0**effective_bits / 12.0
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
