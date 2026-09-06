@@ -16,8 +16,29 @@ dependencies = [
     "fpdf2>=2.8.1",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
 [tool.setuptools]
 packages = ["linkbudget"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["linkbudget"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
 
 [tool.pylint.main]
 py-version = "3.8"
