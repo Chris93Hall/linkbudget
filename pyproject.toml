@@ -17,9 +17,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+plot = [
+    "matplotlib>=3.5",
+]
 test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "matplotlib>=3.5",
 ]
 
 [tool.setuptools]
@@ -28,6 +32,10 @@ packages = ["linkbudget"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+filterwarnings = [
+    # a broken system-packaged matplotlib coexisting with a pip one warns here
+    "ignore:Unable to import Axes3D:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["linkbudget"]
@@ -39,6 +47,9 @@ exclude_also = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
 ]
+
+[tool.coverage.html]
+directory = "coverage"
 
 [tool.pylint.main]
 py-version = "3.8"
@@ -57,5 +68,7 @@ disable = [
     "too-many-instance-attributes",
     "too-many-arguments",
     "too-many-positional-arguments",
+    "too-many-locals",
     "chained-comparison",
+    "duplicate-code",
 ]

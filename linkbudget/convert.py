@@ -5,6 +5,7 @@ convert.py
 import numpy as np
 
 BOLTZMANN_CONSTANT = 1.380649e-23  # joules per kelvin
+SPEED_OF_LIGHT = 2.99792458e8       # meters per second
 
 def linear_to_db(val):
     if val == 0.0:

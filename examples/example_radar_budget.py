@@ -3,19 +3,24 @@ example_radar_budget.py
 
 A more complete example:
 Radar link budget, from transmitter output through the receive chain to a
-coherently-integrated detection SNR. Exercises every component in the
-linkbudget package and publishes an HTML report.
+coherently-integrated detection SNR. Exercises most components in the
+linkbudget package and publishes to stdout, PDF, HTML and a waterfall-plot
+PNG at once; the files land in ``examples/example_outputs/``.
 """
+
+import os
 
 import linkbudget
 
-budget = linkbudget.LinkContainer()
-budget.install_publisher(linkbudget.HTMLPublisher(
-    'example_radar_link_budget.html', title='Radar Link Budget'))
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "example_outputs")
+TITLE = "Radar Link Budget"
 
 RADAR_FREQUENCY = 9.5e9   # X-band, Hz
 TARGET_RANGE = 50e3       # 50 km slant range, meters
 IF_BANDWIDTH = 2e6        # receiver IF bandwidth, Hz
+
+budget = linkbudget.LinkContainer(
+    carrier_frequency=RADAR_FREQUENCY, noise_bandwidth=IF_BANDWIDTH)
 
 # --- Transmit chain ---
 
@@ -60,7 +65,8 @@ budget.add_component(linkbudget.Gain(
     'Rx antenna gain',
     'Receive antenna gain',
     gain=34.0,
-    db=True))
+    db=True,
+    role='rx'))
 
 budget.add_component(linkbudget.CableLoss(
     'Rx cable loss',
@@ -117,6 +123,12 @@ budget.add_component(linkbudget.Integrate(
     'Coherent integration over a 64-pulse CPI',
     timespan=64.0))
 
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+stem = os.path.join(OUTPUT_DIR, 'example_radar_link_budget')
+budget.install_publisher(linkbudget.StdOutPublisher())
+budget.add_publisher(linkbudget.PDFPublisher(stem + '.pdf', title=TITLE))
+budget.add_publisher(linkbudget.HTMLPublisher(stem + '.html', title=TITLE))
+budget.add_publisher(linkbudget.WaterfallPublisher(stem + '.png', title=TITLE + ' — cascade'))
 budget.publish()
-
-print('Wrote example_radar_link_budget.html')
+print(f'\nwrote {stem}.pdf, {stem}.html and {stem}.png\n')
+print(budget.summary())

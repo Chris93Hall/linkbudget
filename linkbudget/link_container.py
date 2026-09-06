@@ -8,20 +8,53 @@ import numpy as np
 
 from . import convert
 from . import publishers
+from .summary import summarize
 
 class LinkContainer:
-    def __init__(self, power_units='W'):
+    def __init__(self, power_units='W', carrier_frequency=None, noise_bandwidth=None,
+                 data_rate=None, symbol_rate=None):
         self.components_list = []
         self.data_list = []
-        self.publisher = publishers.StdOutPublisher()
+        self.publishers = [publishers.StdOutPublisher()]
         self.power_units = power_units
+        # optional context used by summary() to derive figures of merit
+        self.carrier_frequency = carrier_frequency
+        self.noise_bandwidth = noise_bandwidth
+        self.data_rate = data_rate
+        self.symbol_rate = symbol_rate
+
+    @property
+    def publisher(self):
+        """The first installed publisher (backwards-compatible accessor)."""
+        return self.publishers[0] if self.publishers else None
+
+    @publisher.setter
+    def publisher(self, value):
+        self.publishers = [value] if value is not None else []
 
     def install_publisher(self, publisher):
-        self.publisher = publisher
+        """Replace every installed publisher with ``publisher``."""
+        self.publishers = [publisher]
+
+    def add_publisher(self, publisher):
+        """Add another publisher; ``publish()`` runs every installed one."""
+        self.publishers.append(publisher)
 
     def publish(self):
         self.compute()
-        self.publisher.publish(self.data_list, power_units=self.power_units)
+        for publisher in self.publishers:
+            publisher.publish(self.data_list, power_units=self.power_units)
+
+    def summary(self):
+        """Compute the budget and return a :class:`~linkbudget.summary.BudgetSummary`
+        with the standard figures of merit (EIRP, G/T, C/N0, Eb/N0, link
+        margin, ...)."""
+        self.compute()
+        return summarize(self.data_list, self.components_list,
+                         noise_bandwidth=self.noise_bandwidth,
+                         data_rate=self.data_rate,
+                         symbol_rate=self.symbol_rate,
+                         carrier_frequency=self.carrier_frequency)
 
     def add_component(self, component):
         self.components_list.append(component)
@@ -88,6 +121,8 @@ class SignalSource(Component):
         return data_dict
 
 class FreeSpacePathLoss(Component):
+    is_propagation = True
+
     def __init__(self, name, description, distance, frequency):
         self.name = name
         self.description = description
@@ -109,11 +144,14 @@ class FreeSpacePathLoss(Component):
         return data_dict
 
 class Gain(Component):
-    def __init__(self, name, description, gain, db=True):
+    def __init__(self, name, description, gain, db=True, role=None):
         self.name = name
         self.description = description
         self.gain = gain
         self.db = db
+        # optional "tx" / "rx" tag so LinkContainer.summary() can find the
+        # receive antenna when computing G/T
+        self.role = role
 
     def propagate_signal(self, signal_power, noise_power):
         gain = self.gain
@@ -403,6 +441,8 @@ class RadarPathLoss(Component):
     once (matching the standard radar range equation) rather than once per
     leg, which otherwise overstates the path loss by wavelength^2 / (4*Pi).
     """
+    is_propagation = True
+
     def __init__(self, name='Radar path (two-way)', description='', distance=None,
                  tx_distance=None, rx_distance=None, frequency=1e9, rcs_db=0.0):
         self.name = name
@@ -462,6 +502,8 @@ class RadarPathLossOneWay(Component):
     wavelength-dependent term) -- for a direct, non-reflective path, use
     FreeSpacePathLoss instead.
     """
+    is_propagation = True
+
     def __init__(self, name='Radar path (one-way)', description='', distance=1.0, frequency=1e9):
         self.name = name
         self.description = description
@@ -484,9 +526,10 @@ class RadarPathLossOneWay(Component):
         return data_dict
 
 class ArrayFactor:
-    def __init__(self, name='Array Factor', description='', num_elements=1):
+    def __init__(self, name='Array Factor', description='', num_elements=1, role=None):
         self.name = name
         self.description = description
+        self.role = role
         self.num_elements = num_elements
 
     def propagate_signal(self, signal_power, noise_power):
