@@ -25,7 +25,7 @@ def pad_string(string, length, side='left'):
 
     rem_length = length - str_len
     if side != 'left':
-        return string + (' ' * rem_length) 
+        return string + (' ' * rem_length)
     return (' ' * rem_length) + string
 
 def trunc_float(flt):
@@ -78,7 +78,9 @@ class StdOutPublisher(Publisher):
         print('-'*120)
         print('|      LINK BUDGET SUMMARY')
         print('-'*120)
-        print(f'|    Name                | Signal Power Out ({power_units}) | Noise Power Out ({power_units}) | Signal Gain (dB) | Noise Gain (dB) | SNR (dB)      |')
+        print(f'|    Name                | Signal Power Out ({power_units}) | '
+              f'Noise Power Out ({power_units}) | Signal Gain (dB) | '
+              f'Noise Gain (dB) | SNR (dB)      |')
         print('-'*120)
         for index, data, in enumerate(data_list):
             name = pad_string(data['name'], 20, side='right')
@@ -86,11 +88,14 @@ class StdOutPublisher(Publisher):
             #noise_power = pad_string(data['noise_power_in'], 15)
             sig_power_out = pad_string(float_to_bounded_str(data['signal_power_out']), 20)
             noise_power_out = pad_string(float_to_bounded_str(data['noise_power_out']), 15)
-            noise_gain = pad_string(float_to_bounded_str(convert.linear_to_db(data['noise_gain'])), 15)
-            signal_gain = pad_string(float_to_bounded_str(convert.linear_to_db(data['signal_gain'])), 16)
+            noise_gain = pad_string(
+                float_to_bounded_str(convert.linear_to_db(data['noise_gain'])), 15)
+            signal_gain = pad_string(
+                float_to_bounded_str(convert.linear_to_db(data['signal_gain'])), 16)
             snr = pad_string(float_to_bounded_str(convert.linear_to_db(data['snr'])), 13)
             description = data['description']
-            print(f' {index + 1}. {name} | {sig_power_out} | {noise_power_out} | {signal_gain} | {noise_gain} | {snr}')
+            print(f' {index + 1}. {name} | {sig_power_out} | {noise_power_out} | '
+                  f'{signal_gain} | {noise_gain} | {snr}')
             print(f'        {description}')
 
     def publish_detailed(self, data_list, power_units='W'):
@@ -108,5 +113,3 @@ class StdOutPublisher(Publisher):
         self.publish_summary(data_list, power_units)
         print('')
         self.publish_detailed(data_list, power_units)
-
-

@@ -44,11 +44,13 @@ class LinkContainer:
             if data_dict['noise_power_in'] == 0.0:
                 data_dict['noise_gain'] = np.inf
             else:
-                data_dict['noise_gain'] = data_dict['noise_power_out'] / data_dict['noise_power_in']
+                data_dict['noise_gain'] = (
+                    data_dict['noise_power_out'] / data_dict['noise_power_in'])
             if data_dict['signal_power_in'] == 0.0:
                 data_dict['signal_gain'] = np.inf
             else:
-                data_dict['signal_gain'] = data_dict['signal_power_out'] / data_dict['signal_power_in']
+                data_dict['signal_gain'] = (
+                    data_dict['signal_power_out'] / data_dict['signal_power_in'])
             self.data_list.append(data_dict)
 
 class Component(ABC):
@@ -61,14 +63,13 @@ class Component(ABC):
         self.description = description
 
     @abstractmethod
-    def propagate_signal(sig_power, noise_power):
-        data_dict = {'name': self.name,
-                     'description': self.description,
-                     'signal_power_in': sig_power,
-                     'noise_power_in': noise_power,
-                     'signal_power_out': sig_power,
-                     'noise_power_out': noise_power}
-        return data_dict
+    def propagate_signal(self, signal_power, noise_power):
+        """Propagate signal and noise power through this component.
+
+        Returns a dict describing this stage of the link, with keys such as
+        ``name``, ``description``, ``signal_power_in``/``signal_power_out``
+        and ``noise_power_in``/``noise_power_out``.
+        """
 
 class SignalSource(Component):
     def __init__(self, name, description, signal_power=1.0, noise_power=0.0):
@@ -103,7 +104,8 @@ class FreeSpacePathLoss(Component):
                      'noise_power_out': noise_power / fspl,
                      'speed_of_light': 2.99792458e8,
                      'speed_of_light_units': 'meters per second',
-                     'free_space_path_loss_formula': '(4.0 * Pi * frequency * distance / speed_of_light) ^ 2'}
+                     'free_space_path_loss_formula':
+                         '(4.0 * Pi * frequency * distance / speed_of_light) ^ 2'}
         return data_dict
 
 class Gain(Component):
@@ -132,7 +134,7 @@ class QuantizationNoise:
         self.description = description
         self.total_bits = total_bits
         self.headroom_db = headroom_db
-    
+
     def propagate_signal(self, signal_power, noise_power):
         total_power = signal_power + noise_power # assume uncorrelated noise
         headroom_bits = self.headroom_db / 6.0206  # 6.02 dB per bit, the standard ADC backoff rule
@@ -175,7 +177,8 @@ class AnalogToDigitalConverter(Component):
 
     def propagate_signal(self, signal_power, noise_power):
         stage1 = self._input_stage.propagate_signal(signal_power, noise_power)
-        stage2 = self._quantizer.propagate_signal(stage1['signal_power_out'], stage1['noise_power_out'])
+        stage2 = self._quantizer.propagate_signal(
+            stage1['signal_power_out'], stage1['noise_power_out'])
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
@@ -214,7 +217,8 @@ class DigitalToAnalogConverter(Component):
 
     def propagate_signal(self, signal_power, noise_power):
         stage1 = self._quantizer.propagate_signal(signal_power, noise_power)
-        stage2 = self._output_stage.propagate_signal(stage1['signal_power_out'], stage1['noise_power_out'])
+        stage2 = self._output_stage.propagate_signal(
+            stage1['signal_power_out'], stage1['noise_power_out'])
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
@@ -246,9 +250,13 @@ class SubBandTune:
         self.output_lower_freq = output_lower_freq
 
     def propagate_signal(self, signal_power, noise_power):
-        noise_reduction_ratio = (self.output_upper_freq - self.output_lower_freq) / (self.input_upper_freq - self.input_lower_freq)
+        noise_reduction_ratio = (
+            (self.output_upper_freq - self.output_lower_freq)
+            / (self.input_upper_freq - self.input_lower_freq))
         signal_bw = self.signal_upper_freq - self.signal_lower_freq
-        new_signal_bw = min(self.output_upper_freq, self.signal_upper_freq) - max(self.output_lower_freq, self.signal_lower_freq)
+        new_signal_bw = (
+            min(self.output_upper_freq, self.signal_upper_freq)
+            - max(self.output_lower_freq, self.signal_lower_freq))
         signal_reduction_ratio = new_signal_bw / signal_bw
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -265,7 +273,8 @@ class SubBandTune:
         return data_dict
 
 class ThermalNoise(Component):
-    def __init__(self, name='Thermal noise floor', description='', temperature_k=290.0, bandwidth=1.0):
+    def __init__(self, name='Thermal noise floor', description='',
+                 temperature_k=290.0, bandwidth=1.0):
         self.name = name
         self.description = description
         self.temperature_k = temperature_k
@@ -368,7 +377,7 @@ class RadarCrossSection:
         self.name = name
         self.description = description
         self.rcs_db = rcs_db
-    
+
     def propagate_signal(self, signal_power, noise_power):
         rcs_linear = convert.db_to_linear(self.rcs_db)
         data_dict = {'name': self.name,
@@ -432,7 +441,8 @@ class RadarPathLossOneWay(Component):
     target-to-receiver), calibrated so that chaining two of these around a
     RadarCrossSection component reproduces the exact RadarPathLoss result:
 
-        RadarPathLossOneWay(distance=R1) -> RadarCrossSection(rcs_db) -> RadarPathLossOneWay(distance=R2)
+        RadarPathLossOneWay(distance=R1) -> RadarCrossSection(rcs_db)
+            -> RadarPathLossOneWay(distance=R2)
 
     is equivalent to:
 
@@ -565,4 +575,3 @@ class Integrate:
                      'noise_power_out': noise_power,
                      'integration_time': self.timespan}
         return data_dict
-

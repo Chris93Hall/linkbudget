@@ -89,5 +89,5 @@ class HTMLPublisher(Publisher):
             power_units=html_lib.escape(power_units),
             summary_rows=self._summary_rows(data_list),
             detail_sections=self._detail_sections(data_list, power_units))
-        with open(self.fpath, 'w') as f:
+        with open(self.fpath, 'w', encoding='utf-8') as f:
             f.write(html_doc)
