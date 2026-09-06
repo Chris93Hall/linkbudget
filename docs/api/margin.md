@@ -1,0 +1,3 @@
+# `linkbudget.margin`
+
+::: linkbudget.margin

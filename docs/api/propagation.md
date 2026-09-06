@@ -1,0 +1,3 @@
+# `linkbudget.propagation`
+
+::: linkbudget.propagation

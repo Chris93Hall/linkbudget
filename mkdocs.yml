@@ -1,0 +1,87 @@
+site_name: linkbudget
+site_description: A Python library for building RF / communications link budgets
+site_url: https://chris93hall.github.io/linkbudget/
+repo_url: https://github.com/Chris93Hall/linkbudget
+repo_name: Chris93Hall/linkbudget
+edit_uri: edit/main/docs/
+copyright: Documentation built with MkDocs and Material for MkDocs
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_if_no_docstring: true
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            members_order: source
+            filters: ["!^_"]
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Concepts: concepts.md
+  - Guide:
+      - Building a budget: guide/building-a-budget.md
+      - Figures of merit & link margin: guide/figures-of-merit.md
+      - Propagation models: guide/propagation.md
+      - Antenna models: guide/antennas.md
+      - Publishers: guide/publishers.md
+  - Component reference: components.md
+  - API reference:
+      - linkbudget.link_container: api/link_container.md
+      - linkbudget.antennas: api/antennas.md
+      - linkbudget.propagation: api/propagation.md
+      - linkbudget.margin: api/margin.md
+      - linkbudget.summary: api/summary.md
+      - linkbudget.fom: api/fom.md
+      - linkbudget.publishers: api/publishers.md
+      - linkbudget.waterfall_publisher: api/waterfall_publisher.md
+      - linkbudget.convert: api/convert.md

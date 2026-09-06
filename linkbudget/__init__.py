@@ -15,6 +15,7 @@ from .link_container import (
     AnalogToDigitalConverter,
     ArrayFactor,
     CableLoss,
+    Component,
     DigitalToAnalogConverter,
     FreeSpacePathLoss,
     Gain,
@@ -53,6 +54,7 @@ __all__ = [  # noqa: RUF022  -- grouped by role, not alphabetised
     # container + results
     "LinkContainer",
     "BudgetSummary",
+    "Component",
     # signal-chain components
     "SignalSource",
     "FreeSpacePathLoss",

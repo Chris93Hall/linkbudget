@@ -116,7 +116,16 @@ Status legend: `[x]` done · `[~]` partly done · `[ ]` not started
 
 ## 9. Project
 
-- [ ] CI configuration.
-- [ ] Type hints + `py.typed`.
-- [ ] Docs site / worked-example notebooks.
+- [~] CI configuration. Docs deploy workflow exists
+  (`.github/workflows/docs.yml`); still need a test/lint CI workflow.
+- [x] Type hints + `py.typed`. Every function/method in the package is
+  annotated; ``linkbudget/py.typed`` ships the marker; ``mypy linkbudget``
+  is clean. Every component now inherits ``Component`` (which carries the
+  ``is_propagation`` / ``is_margin`` / ``role`` tag defaults).
+- [ ] Add mypy to CI / the Makefile.
+- [x] Docs site -- MkDocs + Material + mkdocstrings, published to GitHub Pages
+  from CI (`make docs` / `make docs-serve`, `pip install linkbudget[docs]`).
+- [ ] Worked-example notebooks (deferred).
+- [ ] Fill in class/function docstrings so the API reference is more than
+  signatures (the `missing-*-docstring` pylint checks are currently disabled).
 - [ ] Changelog.

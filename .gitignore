@@ -9,3 +9,5 @@ dist/
 coverage/
 htmlcov/
 examples/example_outputs/
+site/
+.ruff_cache/

@@ -1,0 +1,3 @@
+# `linkbudget.fom`
+
+::: linkbudget.fom

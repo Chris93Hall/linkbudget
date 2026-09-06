@@ -28,15 +28,44 @@ EXPECTED_EXPORTS = [
     "RadarPathLossOneWay",
     "AnalogToDigitalConverter",
     "DigitalToAnalogConverter",
+    "ParabolicDish",
+    "BeamPointingLoss",
+    "PolarizationMismatchLoss",
+    "AtmosphericAbsorption",
+    "RainAttenuation",
+    "CloudFogAttenuation",
+    "TroposphericScintillation",
+    "TwoRayGroundReflection",
+    "LinkMargin",
+    "Component",
+    "BudgetSummary",
     "StdOutPublisher",
     "PDFPublisher",
     "HTMLPublisher",
+    "WaterfallPublisher",
+]
+
+# every public component class, across all the component modules
+COMPONENT_NAMES = [
+    "SignalSource", "FreeSpacePathLoss", "Gain", "SubBandTune", "QuantizationNoise",
+    "RadarCrossSection", "ArrayFactor", "ThermalNoise", "ImplementationLoss",
+    "CableLoss", "PointingLoss", "PolarizationLoss", "Mixer", "NoiseFigure",
+    "RFComponent", "Integrate", "RadarPathLoss", "RadarPathLossOneWay",
+    "AnalogToDigitalConverter", "DigitalToAnalogConverter",
+    "ParabolicDish", "BeamPointingLoss", "PolarizationMismatchLoss",
+    "AtmosphericAbsorption", "RainAttenuation", "CloudFogAttenuation",
+    "TroposphericScintillation", "TwoRayGroundReflection", "LinkMargin",
 ]
 
 
 @pytest.mark.parametrize("name", EXPECTED_EXPORTS)
 def test_symbol_is_exported(name):
     assert hasattr(linkbudget, name)
+
+
+@pytest.mark.parametrize("name", COMPONENT_NAMES)
+def test_every_component_inherits_the_base_class(name):
+    assert issubclass(getattr(linkbudget, name), linkbudget.Component)
 
 
 def test_package_reimports_cleanly():

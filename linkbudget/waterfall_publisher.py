@@ -11,9 +11,13 @@ so it is only required when this publisher is actually used.  Install it with
 ``pip install linkbudget[plot]``.
 """
 
+from __future__ import annotations
+
 import math
+from typing import Any
 
 from . import convert
+from ._types import StageList
 from .publishers import Publisher
 
 SIGNAL_COLOR = "#2b6cb0"
@@ -21,7 +25,7 @@ NOISE_COLOR = "#c53030"
 FILL_COLOR = "#2b6cb0"
 
 
-def _finite_db(value):
+def _finite_db(value: float) -> float:
     """dB value as a float, or NaN when the linear input was zero / infinite."""
     result = convert.linear_to_db(value)
     return float(result) if math.isfinite(result) else float("nan")
@@ -35,13 +39,14 @@ class WaterfallPublisher(Publisher):
     the bottom of the axes.
     """
 
-    def __init__(self, fpath, title="Link Budget Cascade", figsize=(11, 6), dpi=140):
+    def __init__(self, fpath: str, title: str = "Link Budget Cascade",
+                 figsize: tuple[float, float] = (11, 6), dpi: int = 140) -> None:
         self.fpath = fpath
         self.title = title
         self.figsize = figsize
         self.dpi = dpi
 
-    def publish(self, data_list, power_units="W"):
+    def publish(self, data_list: StageList, power_units: str = "W") -> None:
         # matplotlib is an optional dependency, only needed for this publisher
         import matplotlib  # pylint: disable=import-outside-toplevel
         matplotlib.use("Agg")
@@ -61,7 +66,7 @@ class WaterfallPublisher(Publisher):
         finally:
             plt.close(fig)
 
-    def _draw(self, ax, data_list):
+    def _draw(self, ax: Any, data_list: StageList) -> None:
         positions = list(range(len(data_list)))
         names = [str(stage["name"]) for stage in data_list]
         signal_raw = [_finite_db(stage["signal_power_out"]) for stage in data_list]

@@ -2,10 +2,13 @@
 html_publisher.py
 """
 
+from __future__ import annotations
+
 import html as html_lib
 
 from . import convert
-from .publishers import Publisher, float_to_bounded_str, label_with_units, format_number
+from ._types import StageList
+from .publishers import Publisher, float_to_bounded_str, format_number, label_with_units
 
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="en">
@@ -49,11 +52,11 @@ PAGE_TEMPLATE = """<!doctype html>
 
 
 class HTMLPublisher(Publisher):
-    def __init__(self, fpath, title='Link Budget Report'):
+    def __init__(self, fpath: str, title: str = 'Link Budget Report') -> None:
         self.fpath = fpath
         self.title = title
 
-    def _summary_rows(self, data_list):
+    def _summary_rows(self, data_list: StageList) -> str:
         rows = []
         for index, data in enumerate(data_list):
             name = html_lib.escape(str(data['name']))
@@ -70,7 +73,7 @@ class HTMLPublisher(Publisher):
                 f'<td>{signal_gain}</td><td>{noise_gain}</td><td>{snr}</td></tr>')
         return '\n'.join(rows)
 
-    def _detail_sections(self, data_list, power_units):
+    def _detail_sections(self, data_list: StageList, power_units: str) -> str:
         sections = []
         for index, data in enumerate(data_list):
             field_rows = '\n'.join(
@@ -83,7 +86,7 @@ class HTMLPublisher(Publisher):
                 f'<table class="detail-table">{field_rows}</table></div>')
         return '\n'.join(sections)
 
-    def publish(self, data_list, power_units='W'):
+    def publish(self, data_list: StageList, power_units: str = 'W') -> None:
         html_doc = PAGE_TEMPLATE.format(
             title=html_lib.escape(self.title),
             power_units=html_lib.escape(power_units),

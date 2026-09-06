@@ -211,8 +211,8 @@ class TestRFComponent:
         assert out["signal_power_out"] == pytest.approx(1.0 * gain_lin)
         assert out["noise_power_out"] == pytest.approx(2.0 * gain_lin * noise_factor)
 
-    def test_is_duck_typed_not_a_component_subclass(self):
-        assert not issubclass(lc.RFComponent, lc.Component)
+    def test_is_a_component_subclass(self):
+        assert issubclass(lc.RFComponent, lc.Component)
 
 
 class TestRadarCrossSection:
@@ -251,6 +251,12 @@ class TestRadarPathLoss:
         ratio = (with_rcs.propagate_signal(1.0, 0.0)["signal_power_out"]
                  / no_rcs.propagate_signal(1.0, 0.0)["signal_power_out"])
         assert ratio == pytest.approx(10.0)
+
+    def test_requires_a_distance(self):
+        with pytest.raises(ValueError):
+            lc.RadarPathLoss("r", "", frequency=1e9)
+        with pytest.raises(ValueError):
+            lc.RadarPathLoss("r", "", tx_distance=1000.0, frequency=1e9)  # rx missing
 
 
 class TestRadarPathLossOneWay:

@@ -2,6 +2,8 @@
 
 A small Python library for building RF/communications **link budgets**. You chain together a series of components (signal sources, path loss, gains, noise figures, quantization noise, etc.), and the library propagates signal and noise power through the chain, computing gain and SNR at each stage. Results can be printed to stdout, or exported to a PDF or HTML report.
 
+📖 **Documentation: <https://chris93hall.github.io/linkbudget/>** — concepts, guides, propagation/antenna models, figures of merit and the full API reference. Build it locally with `make docs-serve`.
+
 ## Installation
 
 The project is packaged with a standard `pyproject.toml` (setuptools backend), so it can be installed like any Python package:

@@ -2,20 +2,24 @@
 link_container.py
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 import numpy as np
 
-from . import convert
-from . import publishers
-from .summary import summarize
+from . import convert, publishers
+from ._types import StageData, StageList
+from .summary import BudgetSummary, summarize
+
 
 class LinkContainer:
-    def __init__(self, power_units='W', carrier_frequency=None, noise_bandwidth=None,
-                 data_rate=None, symbol_rate=None):
-        self.components_list = []
-        self.data_list = []
-        self.publishers = [publishers.StdOutPublisher()]
+    def __init__(self, power_units: str = 'W', carrier_frequency: float | None = None,
+                 noise_bandwidth: float | None = None, data_rate: float | None = None,
+                 symbol_rate: float | None = None) -> None:
+        self.components_list: list[Component] = []
+        self.data_list: StageList = []
+        self.publishers: list[publishers.Publisher] = [publishers.StdOutPublisher()]
         self.power_units = power_units
         # optional context used by summary() to derive figures of merit
         self.carrier_frequency = carrier_frequency
@@ -24,28 +28,28 @@ class LinkContainer:
         self.symbol_rate = symbol_rate
 
     @property
-    def publisher(self):
+    def publisher(self) -> publishers.Publisher | None:
         """The first installed publisher (backwards-compatible accessor)."""
         return self.publishers[0] if self.publishers else None
 
     @publisher.setter
-    def publisher(self, value):
+    def publisher(self, value: publishers.Publisher | None) -> None:
         self.publishers = [value] if value is not None else []
 
-    def install_publisher(self, publisher):
+    def install_publisher(self, publisher: publishers.Publisher) -> None:
         """Replace every installed publisher with ``publisher``."""
         self.publishers = [publisher]
 
-    def add_publisher(self, publisher):
+    def add_publisher(self, publisher: publishers.Publisher) -> None:
         """Add another publisher; ``publish()`` runs every installed one."""
         self.publishers.append(publisher)
 
-    def publish(self):
+    def publish(self) -> None:
         self.compute()
         for publisher in self.publishers:
             publisher.publish(self.data_list, power_units=self.power_units)
 
-    def summary(self):
+    def summary(self) -> BudgetSummary:
         """Compute the budget and return a :class:`~linkbudget.summary.BudgetSummary`
         with the standard figures of merit (EIRP, G/T, C/N0, Eb/N0, link
         margin, ...)."""
@@ -56,10 +60,10 @@ class LinkContainer:
                          symbol_rate=self.symbol_rate,
                          carrier_frequency=self.carrier_frequency)
 
-    def add_component(self, component):
+    def add_component(self, component: Component) -> None:
         self.components_list.append(component)
 
-    def compute(self):
+    def compute(self) -> None:
         # reset data list
         self.data_list = []
         # start with no signal or noise
@@ -87,16 +91,35 @@ class LinkContainer:
             self.data_list.append(data_dict)
 
 class Component(ABC):
+    """Abstract base class for every link-budget component.
+
+    A component transforms an incoming ``(signal_power, noise_power)`` pair
+    and returns a stage dict (see :attr:`StageData`).  The class attributes
+    below are read by :meth:`LinkContainer.summary`:
+
+    * ``is_propagation`` -- set ``True`` on path-loss stages; the signal power
+      entering the first one is the budget's EIRP and their combined loss is
+      the total propagation loss.
+    * ``is_margin`` -- set ``True`` on a :class:`~linkbudget.margin.LinkMargin`.
+    * ``role`` -- ``"tx"`` / ``"rx"`` on an antenna, so the receive antenna
+      can be identified for G/T.
+
+    Components are duck-typed -- ``LinkContainer`` only calls
+    ``propagate_signal`` -- so inheriting from this class is a convention, not
+    a requirement.
     """
-    Abstract Component
-    """
+
+    is_propagation: bool = False
+    is_margin: bool = False
+    role: str | None = None
+
     @abstractmethod
-    def __init__(self, name, description):
+    def __init__(self, name: str, description: str) -> None:
         self.name = name
         self.description = description
 
     @abstractmethod
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Propagate signal and noise power through this component.
 
         Returns a dict describing this stage of the link, with keys such as
@@ -105,13 +128,15 @@ class Component(ABC):
         """
 
 class SignalSource(Component):
-    def __init__(self, name, description, signal_power=1.0, noise_power=0.0):
+    def __init__(self, name: str, description: str, signal_power: float = 1.0,
+                 noise_power: float = 0.0) -> None:
         self.name = name
         self.description = description
         self.signal_power = signal_power
         self.noise_power = noise_power
 
-    def propagate_signal(self, signal_power=0.0, noise_power=0.0):
+    def propagate_signal(self, signal_power: float = 0.0,
+                         noise_power: float = 0.0) -> StageData:
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
@@ -123,13 +148,14 @@ class SignalSource(Component):
 class FreeSpacePathLoss(Component):
     is_propagation = True
 
-    def __init__(self, name, description, distance, frequency):
+    def __init__(self, name: str, description: str, distance: float,
+                 frequency: float) -> None:
         self.name = name
         self.description = description
         self.distance = distance
         self.frequency = frequency
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         fspl = (4.0 * np.pi * self.distance * self.frequency / 2.99792458e8) ** 2
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -144,7 +170,8 @@ class FreeSpacePathLoss(Component):
         return data_dict
 
 class Gain(Component):
-    def __init__(self, name, description, gain, db=True, role=None):
+    def __init__(self, name: str, description: str, gain: float, db: bool = True,
+                 role: str | None = None) -> None:
         self.name = name
         self.description = description
         self.gain = gain
@@ -153,7 +180,7 @@ class Gain(Component):
         # receive antenna when computing G/T
         self.role = role
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         gain = self.gain
         if self.db:
             gain = 10.0**(gain/10.0)
@@ -166,14 +193,15 @@ class Gain(Component):
                      'noise_power_out': noise_power * gain}
         return data_dict
 
-class QuantizationNoise:
-    def __init__(self, name='Quantization noise', description='',  total_bits=12, headroom_db=0):
+class QuantizationNoise(Component):
+    def __init__(self, name: str = 'Quantization noise', description: str = '',
+                 total_bits: float = 12, headroom_db: float = 0) -> None:
         self.name = name
         self.description = description
         self.total_bits = total_bits
         self.headroom_db = headroom_db
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         total_power = signal_power + noise_power # assume uncorrelated noise
         headroom_bits = self.headroom_db / 6.0206  # 6.02 dB per bit, the standard ADC backoff rule
         effective_bits = self.total_bits - headroom_bits
@@ -201,8 +229,9 @@ class AnalogToDigitalConverter(Component):
     (total_bits, headroom_db), so its noise behavior matches using those
     two components back-to-back.
     """
-    def __init__(self, name='ADC', description='', gain_db=0.0, noise_figure_db=0.0,
-                 total_bits=12.0, headroom_db=0.0, sample_rate=None):
+    def __init__(self, name: str = 'ADC', description: str = '', gain_db: float = 0.0,
+                 noise_figure_db: float = 0.0, total_bits: float = 12.0,
+                 headroom_db: float = 0.0, sample_rate: float | None = None) -> None:
         self.name = name
         self.description = description
         self.gain_db = gain_db
@@ -213,7 +242,7 @@ class AnalogToDigitalConverter(Component):
         self._input_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db)
         self._quantizer = QuantizationNoise(total_bits=total_bits, headroom_db=headroom_db)
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         stage1 = self._input_stage.propagate_signal(signal_power, noise_power)
         stage2 = self._quantizer.propagate_signal(
             stage1['signal_power_out'], stage1['noise_power_out'])
@@ -241,8 +270,9 @@ class DigitalToAnalogConverter(Component):
     AnalogToDigitalConverter. Internally composes QuantizationNoise
     (total_bits, headroom_db) with RFComponent (gain_db, noise_figure_db).
     """
-    def __init__(self, name='DAC', description='', total_bits=12.0, headroom_db=0.0,
-                 gain_db=0.0, noise_figure_db=0.0, sample_rate=None):
+    def __init__(self, name: str = 'DAC', description: str = '', total_bits: float = 12.0,
+                 headroom_db: float = 0.0, gain_db: float = 0.0,
+                 noise_figure_db: float = 0.0, sample_rate: float | None = None) -> None:
         self.name = name
         self.description = description
         self.total_bits = total_bits
@@ -253,7 +283,7 @@ class DigitalToAnalogConverter(Component):
         self._quantizer = QuantizationNoise(total_bits=total_bits, headroom_db=headroom_db)
         self._output_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db)
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         stage1 = self._quantizer.propagate_signal(signal_power, noise_power)
         stage2 = self._output_stage.propagate_signal(
             stage1['signal_power_out'], stage1['noise_power_out'])
@@ -273,10 +303,11 @@ class DigitalToAnalogConverter(Component):
                      'sample_rate': self.sample_rate}
         return data_dict
 
-class SubBandTune:
-    def __init__(self, name='Sub-band Tuner', description='', input_upper_freq=1e6,
-                 input_lower_freq=0.0, signal_upper_freq=4e6, signal_lower_freq=2e6,
-                 output_upper_freq=3e6, output_lower_freq=2e6):
+class SubBandTune(Component):
+    def __init__(self, name: str = 'Sub-band Tuner', description: str = '',
+                 input_upper_freq: float = 1e6, input_lower_freq: float = 0.0,
+                 signal_upper_freq: float = 4e6, signal_lower_freq: float = 2e6,
+                 output_upper_freq: float = 3e6, output_lower_freq: float = 2e6) -> None:
 
         self.name = name
         self.description = description
@@ -287,7 +318,7 @@ class SubBandTune:
         self.output_upper_freq = output_upper_freq
         self.output_lower_freq = output_lower_freq
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         noise_reduction_ratio = (
             (self.output_upper_freq - self.output_lower_freq)
             / (self.input_upper_freq - self.input_lower_freq))
@@ -311,14 +342,14 @@ class SubBandTune:
         return data_dict
 
 class ThermalNoise(Component):
-    def __init__(self, name='Thermal noise floor', description='',
-                 temperature_k=290.0, bandwidth=1.0):
+    def __init__(self, name: str = 'Thermal noise floor', description: str = '',
+                 temperature_k: float = 290.0, bandwidth: float = 1.0) -> None:
         self.name = name
         self.description = description
         self.temperature_k = temperature_k
         self.bandwidth = bandwidth
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         thermal_noise_power = convert.BOLTZMANN_CONSTANT * self.temperature_k * self.bandwidth
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -333,8 +364,9 @@ class ThermalNoise(Component):
         return data_dict
 
 class ImplementationLoss(Component):
-    def __init__(self, name='Implementation loss', description='', cable_loss_db=0.0,
-                 pointing_loss_db=0.0, polarization_loss_db=0.0, other_loss_db=0.0):
+    def __init__(self, name: str = 'Implementation loss', description: str = '',
+                 cable_loss_db: float = 0.0, pointing_loss_db: float = 0.0,
+                 polarization_loss_db: float = 0.0, other_loss_db: float = 0.0) -> None:
         self.name = name
         self.description = description
         self.cable_loss_db = cable_loss_db
@@ -342,7 +374,7 @@ class ImplementationLoss(Component):
         self.polarization_loss_db = polarization_loss_db
         self.other_loss_db = other_loss_db
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         total_loss_db = (self.cable_loss_db + self.pointing_loss_db
                           + self.polarization_loss_db + self.other_loss_db)
         loss_linear = convert.db_to_linear(total_loss_db)
@@ -360,24 +392,28 @@ class ImplementationLoss(Component):
         return data_dict
 
 class CableLoss(ImplementationLoss):
-    def __init__(self, name='Cable loss', description='', loss_db=0.0):
+    def __init__(self, name: str = 'Cable loss', description: str = '',
+                 loss_db: float = 0.0) -> None:
         super().__init__(name=name, description=description, cable_loss_db=loss_db)
 
 class PointingLoss(ImplementationLoss):
-    def __init__(self, name='Pointing loss', description='', loss_db=0.0):
+    def __init__(self, name: str = 'Pointing loss', description: str = '',
+                 loss_db: float = 0.0) -> None:
         super().__init__(name=name, description=description, pointing_loss_db=loss_db)
 
 class PolarizationLoss(ImplementationLoss):
-    def __init__(self, name='Polarization loss', description='', loss_db=0.0):
+    def __init__(self, name: str = 'Polarization loss', description: str = '',
+                 loss_db: float = 0.0) -> None:
         super().__init__(name=name, description=description, polarization_loss_db=loss_db)
 
-class NoiseFigure:
-    def __init__(self, name='Noise figure', description='', noise_figure=1.0):
+class NoiseFigure(Component):
+    def __init__(self, name: str = 'Noise figure', description: str = '',
+                 noise_figure: float = 1.0) -> None:
         self.name = name
         self.description = description
         self.noise_figure = noise_figure
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         noise_factor = 10.0**(self.noise_figure/10.0)
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -389,14 +425,15 @@ class NoiseFigure:
                      'noise_factor': noise_factor}
         return data_dict
 
-class RFComponent:
-    def __init__(self, name='RF Component', description='', gain=1.0, noise_figure=1.0):
+class RFComponent(Component):
+    def __init__(self, name: str = 'RF Component', description: str = '',
+                 gain: float = 1.0, noise_figure: float = 1.0) -> None:
         self.name = name
         self.description = description
         self.gain = gain
         self.noise_figure = noise_figure
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         noise_factor = 10.0**(self.noise_figure/10.0)
         gain_linear = 10.0**(self.gain/10.0)
         data_dict = {'name': self.name,
@@ -410,13 +447,14 @@ class RFComponent:
                      'gain': self.gain}
         return data_dict
 
-class RadarCrossSection:
-    def __init__(self, name='RCS', description='', rcs_db=0.0):
+class RadarCrossSection(Component):
+    def __init__(self, name: str = 'RCS', description: str = '',
+                 rcs_db: float = 0.0) -> None:
         self.name = name
         self.description = description
         self.rcs_db = rcs_db
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         rcs_linear = convert.db_to_linear(self.rcs_db)
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -443,19 +481,23 @@ class RadarPathLoss(Component):
     """
     is_propagation = True
 
-    def __init__(self, name='Radar path (two-way)', description='', distance=None,
-                 tx_distance=None, rx_distance=None, frequency=1e9, rcs_db=0.0):
+    def __init__(self, name: str = 'Radar path (two-way)', description: str = '',
+                 distance: float | None = None, tx_distance: float | None = None,
+                 rx_distance: float | None = None, frequency: float = 1e9,
+                 rcs_db: float = 0.0) -> None:
         self.name = name
         self.description = description
         if distance is not None:
             tx_distance = distance
             rx_distance = distance
+        if tx_distance is None or rx_distance is None:
+            raise ValueError("give distance, or both tx_distance and rx_distance")
         self.tx_distance = tx_distance
         self.rx_distance = rx_distance
         self.frequency = frequency
         self.rcs_db = rcs_db
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         wavelength = 2.99792458e8 / self.frequency
         rcs_m2 = convert.db_to_linear(self.rcs_db)
         path_term = ((wavelength**2 * rcs_m2)
@@ -504,13 +546,14 @@ class RadarPathLossOneWay(Component):
     """
     is_propagation = True
 
-    def __init__(self, name='Radar path (one-way)', description='', distance=1.0, frequency=1e9):
+    def __init__(self, name: str = 'Radar path (one-way)', description: str = '',
+                 distance: float = 1.0, frequency: float = 1e9) -> None:
         self.name = name
         self.description = description
         self.distance = distance
         self.frequency = frequency
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         wavelength = 2.99792458e8 / self.frequency
         path_term = wavelength / ((4.0 * np.pi)**1.5 * self.distance**2)
         data_dict = {'name': self.name,
@@ -525,14 +568,15 @@ class RadarPathLossOneWay(Component):
                      'path_loss_db': convert.linear_to_db(1.0 / path_term)}
         return data_dict
 
-class ArrayFactor:
-    def __init__(self, name='Array Factor', description='', num_elements=1, role=None):
+class ArrayFactor(Component):
+    def __init__(self, name: str = 'Array Factor', description: str = '',
+                 num_elements: int = 1, role: str | None = None) -> None:
         self.name = name
         self.description = description
         self.role = role
         self.num_elements = num_elements
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
@@ -548,9 +592,10 @@ class Mixer(Component):
     Frequency-converts the signal (up- or down-conversion against a local
     oscillator), applying conversion loss/gain and noise figure.
     """
-    def __init__(self, name='Mixer', description='', lo_frequency=0.0, rf_frequency=None,
-                 conversion_loss_db=0.0, noise_figure_db=None, mode='downconvert',
-                 image_reject_db=None):
+    def __init__(self, name: str = 'Mixer', description: str = '',
+                 lo_frequency: float = 0.0, rf_frequency: float | None = None,
+                 conversion_loss_db: float = 0.0, noise_figure_db: float | None = None,
+                 mode: str = 'downconvert', image_reject_db: float | None = None) -> None:
         self.name = name
         self.description = description
         self.lo_frequency = lo_frequency
@@ -561,7 +606,7 @@ class Mixer(Component):
         self.mode = mode
         self.image_reject_db = image_reject_db
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         conversion_gain_linear = convert.db_to_linear(-self.conversion_loss_db)
         noise_factor = convert.db_to_linear(self.noise_figure_db)
 
@@ -598,18 +643,19 @@ class Mixer(Component):
                      'image_noise_power': image_noise_power}
         return data_dict
 
-class Integrate:
+class Integrate(Component):
     """
     Coherent integration (e.g. pulse integration): builds up SNR by summing
     `timespan` samples/pulses coherently. Signal power scales by `timespan`
     (the coherent processing gain); noise power is unaffected.
     """
-    def __init__(self, name='Integration', description='', timespan=1.0):
+    def __init__(self, name: str = 'Integration', description: str = '',
+                 timespan: float = 1.0) -> None:
         self.name = name
         self.description = description
         self.timespan = timespan
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,

@@ -1,0 +1,3 @@
+# `linkbudget.summary`
+
+::: linkbudget.summary

@@ -2,11 +2,14 @@
 pdf_publisher.py
 """
 
+from __future__ import annotations
+
 from fpdf import FPDF
 from fpdf.fonts import FontFace
 
 from . import convert
-from .publishers import Publisher, label_with_units, float_to_bounded_str, format_number
+from ._types import StageList
+from .publishers import Publisher, float_to_bounded_str, format_number, label_with_units
 
 HEADER_FILL = (45, 55, 72)     # matches HTMLPublisher's thead background (#2d3748)
 HEADER_TEXT = 255              # white
@@ -15,7 +18,7 @@ BORDER_COLOR = (221, 221, 221) # matches HTMLPublisher's border color (#ddd)
 
 
 class PDFPublisher(Publisher):
-    def __init__(self, fpath, title='Link Budget Report'):
+    def __init__(self, fpath: str, title: str = 'Link Budget Report') -> None:
         self.fpath = fpath
         self.title = title
         self.pdf = FPDF(orientation="P", unit="mm", format="A4")
@@ -23,7 +26,7 @@ class PDFPublisher(Publisher):
         self.pdf.add_page()
         self.pdf.set_draw_color(*BORDER_COLOR)
 
-    def _title_page_header(self):
+    def _title_page_header(self) -> None:
         self.pdf.set_font("helvetica", "B", 20)
         self.pdf.set_text_color(*HEADER_FILL)
         self.pdf.cell(0, 12, self.title, align="L", new_x="LMARGIN", new_y="NEXT")
@@ -35,14 +38,14 @@ class PDFPublisher(Publisher):
         self.pdf.set_line_width(0.2)
         self.pdf.ln(4)
 
-    def _section_heading(self, text):
+    def _section_heading(self, text: str) -> None:
         self.pdf.set_font("helvetica", "B", 14)
         self.pdf.set_text_color(*HEADER_FILL)
         self.pdf.cell(0, 10, text, new_x="LMARGIN", new_y="NEXT")
         self.pdf.set_text_color(0, 0, 0)
         self.pdf.ln(1)
 
-    def publish_summary(self, data_list, power_units='W'):
+    def publish_summary(self, data_list: StageList, power_units: str = 'W') -> None:
         self._title_page_header()
         self._section_heading('Summary')
 
@@ -78,7 +81,7 @@ class PDFPublisher(Publisher):
 
         self.pdf.add_page()
 
-    def publish_detailed(self, data_list, power_units='W'):
+    def publish_detailed(self, data_list: StageList, power_units: str = 'W') -> None:
         self._section_heading('Detailed Report')
 
         for index, data in enumerate(data_list):
@@ -110,7 +113,7 @@ class PDFPublisher(Publisher):
 
             self.pdf.ln(6)
 
-    def publish(self, data_list, power_units='W'):
+    def publish(self, data_list: StageList, power_units: str = 'W') -> None:
         self.publish_summary(data_list, power_units)
         self.publish_detailed(data_list, power_units)
         self.pdf.output(self.fpath)

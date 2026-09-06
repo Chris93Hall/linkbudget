@@ -8,8 +8,13 @@ by ``LinkContainer.summary()``.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any, Sequence
 
 from . import convert, fom
+from ._types import StageList
+
+if TYPE_CHECKING:
+    from .link_container import Component
 
 
 @dataclass
@@ -24,7 +29,7 @@ class BudgetSummary:
     ``LinkMargin`` stage is present (``margin_db`` / ``closes``).
     """
 
-    stages: list = field(default_factory=list)
+    stages: StageList = field(default_factory=list)
 
     signal_power_w: float = 0.0
     signal_power_dbw: float = float("-inf")
@@ -54,11 +59,11 @@ class BudgetSummary:
     margin_db: float | None = None
     closes: bool | None = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """The summary as a plain dict (stages included)."""
         return asdict(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         rows = [
             ("Signal power", _fmt(self.signal_power_dbw, "dBW")),
             ("Noise power", _fmt(self.noise_power_dbw, "dBW")),
@@ -83,13 +88,14 @@ class BudgetSummary:
         return "\n".join(lines)
 
 
-def _fmt(value, units):
+def _fmt(value: float | None, units: str) -> str | None:
     if value is None:
         return None
     return f"{value:.3g} {units}"
 
 
-def _propagation_metrics(summary, data_list, components):
+def _propagation_metrics(summary: BudgetSummary, data_list: StageList,
+                         components: Sequence[Component]) -> None:
     prop_idxs = [i for i, comp in enumerate(components)
                  if getattr(comp, "is_propagation", False)]
     if not prop_idxs:
@@ -105,7 +111,9 @@ def _propagation_metrics(summary, data_list, components):
     summary.total_propagation_loss_db = -convert.linear_to_db(total_gain)
 
 
-def _noise_metrics(summary, data_list, components, noise_bandwidth):
+def _noise_metrics(summary: BudgetSummary, data_list: StageList,
+                   components: Sequence[Component],
+                   noise_bandwidth: float | None) -> None:
     if not noise_bandwidth:
         return
     floor_idx = next((i for i, stage in enumerate(data_list)
@@ -133,8 +141,10 @@ def _noise_metrics(summary, data_list, components, noise_bandwidth):
             summary.g_over_t_db = fom.g_over_t_db(rx_gain_db, t_sys)
 
 
-def summarize(data_list, components=None, noise_bandwidth=None, data_rate=None,
-              symbol_rate=None, carrier_frequency=None):
+def summarize(data_list: StageList, components: Sequence[Component] | None = None,
+              noise_bandwidth: float | None = None, data_rate: float | None = None,
+              symbol_rate: float | None = None,
+              carrier_frequency: float | None = None) -> BudgetSummary:
     """Build a :class:`BudgetSummary` from a computed ``data_list`` and the
     component list that produced it."""
     components = list(components or [])

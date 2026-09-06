@@ -2,22 +2,27 @@
 publishers.py
 """
 
+from __future__ import annotations
+
 import math
 from abc import ABC, abstractmethod
+from typing import Any
+
 from . import convert
+from ._types import StageList
 
 # fields whose values are absolute power quantities in the container's
 # power_units, as opposed to ratios, dB values, frequencies, etc.
 POWER_FIELDS = {'signal_power_in', 'signal_power_out', 'noise_power_in', 'noise_power_out',
                  'quantization_noise', 'thermal_noise_power', 'image_noise_power'}
 
-def label_with_units(key, power_units):
+def label_with_units(key: str, power_units: str) -> str:
     pretty_key = key.replace('_', ' ')
     if key in POWER_FIELDS:
         return f'{pretty_key} ({power_units})'
     return pretty_key
 
-def pad_string(string, length, side='left'):
+def pad_string(string: Any, length: int, side: str = 'left') -> str:
     string = str(string)
     str_len = len(string)
     if str_len >= length:
@@ -28,11 +33,10 @@ def pad_string(string, length, side='left'):
         return string + (' ' * rem_length)
     return (' ' * rem_length) + string
 
-def trunc_float(flt):
-    flt = f'{flt:4f}'
-    return float(flt)
+def trunc_float(flt: float) -> float:
+    return float(f'{flt:4f}')
 
-def format_number(val, sig_figs=6):
+def format_number(val: Any, sig_figs: int = 6) -> str:
     """
     Format a number to at most `sig_figs` significant figures, choosing
     between fixed-point and scientific notation based on its magnitude
@@ -49,7 +53,7 @@ def format_number(val, sig_figs=6):
         return '0.0'
     return f'{float(val):.{sig_figs}g}'
 
-def float_to_bounded_str(val, str_length=12, sig_figs=6):
+def float_to_bounded_str(val: float, str_length: int = 12, sig_figs: int = 6) -> str:
     val_str = format_number(val, sig_figs)
     if len(val_str) <= str_length:
         return val_str
@@ -63,18 +67,18 @@ def float_to_bounded_str(val, str_length=12, sig_figs=6):
 
 class Publisher(ABC):
     @abstractmethod
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @abstractmethod
-    def publish(self, data_list, power_units='W'):
+    def publish(self, data_list: StageList, power_units: str = 'W') -> None:
         pass
 
 class StdOutPublisher(Publisher):
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def publish_summary(self, data_list, power_units='W'):
+    def publish_summary(self, data_list: StageList, power_units: str = 'W') -> None:
         print('-'*120)
         print('|      LINK BUDGET SUMMARY')
         print('-'*120)
@@ -98,18 +102,18 @@ class StdOutPublisher(Publisher):
                   f'{signal_gain} | {noise_gain} | {snr}')
             print(f'        {description}')
 
-    def publish_detailed(self, data_list, power_units='W'):
+    def publish_detailed(self, data_list: StageList, power_units: str = 'W') -> None:
         print('-'*120)
         print('|      DETAILED LINK BUDGET REPORT')
         print('-'*120)
         for index, data, in enumerate(data_list):
             print('-'*120)
             print(f' {index + 1}. {data["name"]}')
-            for key in data.keys():
+            for key in data:
                 pretty_key = label_with_units(key, power_units)
                 print(f'      {pretty_key}: {format_number(data[key])}')
 
-    def publish(self, data_list, power_units='W'):
+    def publish(self, data_list: StageList, power_units: str = 'W') -> None:
         self.publish_summary(data_list, power_units)
-        print('')
+        print()
         self.publish_detailed(data_list, power_units)

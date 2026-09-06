@@ -4,10 +4,14 @@ margin.py
 Link-margin / closure analysis.
 """
 
+from __future__ import annotations
+
 from . import convert, fom
+from ._types import StageData
+from .link_container import Component
 
 
-class LinkMargin:
+class LinkMargin(Component):
     """Terminal analysis stage: compares the achieved link quality against a
     required threshold and reports the margin.
 
@@ -26,13 +30,15 @@ class LinkMargin:
     """
 
     is_margin = True
-    is_propagation = False
 
-    def __init__(self, name="Link margin", description="",
-                 required_ebno_db=None, required_esno_db=None,
-                 required_cn_db=None, required_snr_db=None,
-                 noise_bandwidth=None, data_rate=None, symbol_rate=None,
-                 implementation_loss_db=0.0, coding_gain_db=0.0):
+    def __init__(self, name: str = "Link margin", description: str = "",
+                 required_ebno_db: float | None = None,
+                 required_esno_db: float | None = None,
+                 required_cn_db: float | None = None,
+                 required_snr_db: float | None = None,
+                 noise_bandwidth: float | None = None, data_rate: float | None = None,
+                 symbol_rate: float | None = None, implementation_loss_db: float = 0.0,
+                 coding_gain_db: float = 0.0) -> None:
         requirements = {
             "required_ebno_db": required_ebno_db,
             "required_esno_db": required_esno_db,
@@ -56,8 +62,14 @@ class LinkMargin:
         self.implementation_loss_db = implementation_loss_db
         self.coding_gain_db = coding_gain_db
 
-    def _achieved_and_required(self, achieved_snr_db, cn0):
-        """Return (metric_name, achieved_db, required_db)."""
+    def _achieved_and_required(
+            self, achieved_snr_db: float,
+            cn0: float | None) -> tuple[str, float | None, float]:
+        """Return (metric_name, achieved_db, required_db).
+
+        Exactly one ``required_*`` is set (enforced in ``__init__``), so
+        ``required_db`` is always a real number.
+        """
         if self.required_ebno_db is not None:
             achieved = fom.ebno_db(cn0, self.data_rate) if (
                 cn0 is not None and self.data_rate) else None
@@ -70,9 +82,10 @@ class LinkMargin:
             achieved = fom.cn_db(cn0, self.noise_bandwidth) if (
                 cn0 is not None and self.noise_bandwidth) else achieved_snr_db
             return "C/N", achieved, self.required_cn_db
+        assert self.required_snr_db is not None  # the one requirement that was set
         return "SNR", achieved_snr_db, self.required_snr_db
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         if noise_power > 0.0:
             achieved_snr = signal_power / noise_power
         else:

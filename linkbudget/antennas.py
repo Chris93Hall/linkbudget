@@ -6,36 +6,43 @@ classes here return the same stage dict as the components in
 ``link_container`` and drop straight into a ``LinkContainer``.
 """
 
+from __future__ import annotations
+
 import math
 
 from . import convert
+from ._types import StageData
+from .link_container import Component
 
-DEFAULT_APERTURE_EFFICIENCY = 0.55
+DEFAULT_APERTURE_EFFICIENCY: float = 0.55
 # rule-of-thumb constant relating -3 dB beamwidth to lambda / D for a dish
-BEAMWIDTH_CONSTANT_DEG = 70.0
+BEAMWIDTH_CONSTANT_DEG: float = 70.0
 
 
-def dish_gain_dbi(diameter_m, frequency_hz, efficiency=DEFAULT_APERTURE_EFFICIENCY):
+def dish_gain_dbi(diameter_m: float, frequency_hz: float,
+                  efficiency: float = DEFAULT_APERTURE_EFFICIENCY) -> float:
     """Boresight gain (dBi) of a circular-aperture (parabolic) antenna."""
     wavelength = convert.SPEED_OF_LIGHT / frequency_hz
     return convert.linear_to_db(efficiency * (math.pi * diameter_m / wavelength) ** 2)
 
 
-def dish_half_power_beamwidth_deg(diameter_m, frequency_hz,
-                                  beamwidth_constant=BEAMWIDTH_CONSTANT_DEG):
+def dish_half_power_beamwidth_deg(diameter_m: float, frequency_hz: float,
+                                  beamwidth_constant: float = BEAMWIDTH_CONSTANT_DEG) -> float:
     """Approximate half-power (-3 dB) beamwidth (degrees) of a parabolic dish."""
     wavelength = convert.SPEED_OF_LIGHT / frequency_hz
     return beamwidth_constant * wavelength / diameter_m
 
 
-def gaussian_beam_pointing_loss_db(offset_deg, half_power_beamwidth_deg):
+def gaussian_beam_pointing_loss_db(offset_deg: float,
+                                   half_power_beamwidth_deg: float) -> float:
     """Main-lobe loss (dB) for a direction ``offset_deg`` off boresight of a
     beam with the given -3 dB beamwidth, using the standard quadratic
     (Gaussian) approximation ``L = 12 (offset / HPBW)**2``."""
     return 12.0 * (offset_deg / half_power_beamwidth_deg) ** 2
 
 
-def polarization_efficiency(axial_ratio_db_1, axial_ratio_db_2, tilt_angle_deg=0.0):
+def polarization_efficiency(axial_ratio_db_1: float, axial_ratio_db_2: float,
+                            tilt_angle_deg: float = 0.0) -> float:
     """Polarization matching efficiency (0..1) between two elliptically
     polarized antennas with the given axial ratios (dB) and relative tilt.
 
@@ -52,7 +59,7 @@ def polarization_efficiency(axial_ratio_db_1, axial_ratio_db_2, tilt_angle_deg=0
     return 0.5 + numerator / denominator
 
 
-class ParabolicDish:
+class ParabolicDish(Component):
     """Parabolic (circular-aperture) antenna.
 
     Gain and -3 dB beamwidth are derived from the physical diameter,
@@ -62,10 +69,10 @@ class ParabolicDish:
     when computing G/T.
     """
 
-    is_propagation = False
-
-    def __init__(self, name="Parabolic dish", description="", diameter=1.0,
-                 frequency=1e9, efficiency=DEFAULT_APERTURE_EFFICIENCY, role=None):
+    def __init__(self, name: str = "Parabolic dish", description: str = "",
+                 diameter: float = 1.0, frequency: float = 1e9,
+                 efficiency: float = DEFAULT_APERTURE_EFFICIENCY,
+                 role: str | None = None) -> None:
         self.name = name
         self.description = description
         self.diameter = diameter
@@ -73,7 +80,7 @@ class ParabolicDish:
         self.efficiency = efficiency
         self.role = role
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         gain_dbi = dish_gain_dbi(self.diameter, self.frequency, self.efficiency)
         beamwidth_deg = dish_half_power_beamwidth_deg(self.diameter, self.frequency)
         gain_linear = convert.db_to_linear(gain_dbi)
@@ -90,17 +97,17 @@ class ParabolicDish:
                 "half_power_beamwidth_deg": beamwidth_deg}
 
 
-class BeamPointingLoss:
+class BeamPointingLoss(Component):
     """Pointing loss from a finite beamwidth and a pointing error.
 
     Either give ``half_power_beamwidth_deg`` directly, or give an antenna
     ``diameter`` and ``frequency`` to derive it from a parabolic-dish model.
     """
 
-    is_propagation = False
-
-    def __init__(self, name="Beam pointing loss", description="", pointing_error_deg=0.0,
-                 half_power_beamwidth_deg=None, diameter=None, frequency=None):
+    def __init__(self, name: str = "Beam pointing loss", description: str = "",
+                 pointing_error_deg: float = 0.0,
+                 half_power_beamwidth_deg: float | None = None,
+                 diameter: float | None = None, frequency: float | None = None) -> None:
         self.name = name
         self.description = description
         self.pointing_error_deg = pointing_error_deg
@@ -111,7 +118,7 @@ class BeamPointingLoss:
             half_power_beamwidth_deg = dish_half_power_beamwidth_deg(diameter, frequency)
         self.half_power_beamwidth_deg = half_power_beamwidth_deg
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         loss_db = gaussian_beam_pointing_loss_db(
             self.pointing_error_deg, self.half_power_beamwidth_deg)
         loss_linear = convert.db_to_linear(loss_db)
@@ -126,21 +133,20 @@ class BeamPointingLoss:
                 "pointing_loss_db": loss_db}
 
 
-class PolarizationMismatchLoss:
+class PolarizationMismatchLoss(Component):
     """Loss from a polarization mismatch between the transmit and receive
     antennas, computed from their axial ratios (dB) and relative tilt."""
 
-    is_propagation = False
-
-    def __init__(self, name="Polarization mismatch loss", description="",
-                 axial_ratio_db_tx=0.0, axial_ratio_db_rx=0.0, tilt_angle_deg=0.0):
+    def __init__(self, name: str = "Polarization mismatch loss", description: str = "",
+                 axial_ratio_db_tx: float = 0.0, axial_ratio_db_rx: float = 0.0,
+                 tilt_angle_deg: float = 0.0) -> None:
         self.name = name
         self.description = description
         self.axial_ratio_db_tx = axial_ratio_db_tx
         self.axial_ratio_db_rx = axial_ratio_db_rx
         self.tilt_angle_deg = tilt_angle_deg
 
-    def propagate_signal(self, signal_power, noise_power):
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         efficiency = polarization_efficiency(
             self.axial_ratio_db_tx, self.axial_ratio_db_rx, self.tilt_angle_deg)
         loss_db = -convert.linear_to_db(efficiency)
