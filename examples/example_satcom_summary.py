@@ -72,7 +72,7 @@ budget.add_component(lb.LinkMargin(
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 stem = os.path.join(OUTPUT_DIR, "example_satcom_downlink")
-budget.install_publisher(lb.StdOutPublisher())
+# a new container already publishes to stdout; add the file publishers alongside it
 budget.add_publisher(lb.PDFPublisher(stem + ".pdf", title=TITLE))
 budget.add_publisher(lb.HTMLPublisher(stem + ".html", title=TITLE))
 budget.add_publisher(lb.MarkdownPublisher(stem + ".md", title=TITLE))

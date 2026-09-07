@@ -6,20 +6,24 @@ installed by default.
 ## Installing publishers
 
 ```python
-budget.install_publisher(pub)   # replace every installed publisher
-budget.add_publisher(pub)       # append; publish() runs them all
+budget.add_publisher(pub)       # append; publish() runs every installed one
 budget.publish()
 ```
 
-`budget.publisher` still works as a read/write accessor for the first
-installed publisher, for backwards compatibility.
+A new container starts with a `StdOutPublisher`. To drop or replace it,
+assign `budget.publisher` (the first publisher) or `budget.publishers`
+(the whole list):
 
 ```python
-budget.install_publisher(linkbudget.StdOutPublisher())
+budget.publisher = linkbudget.PDFPublisher("report.pdf")   # replace the list
+budget.publishers = []                                     # no output at all
+```
+
+```python
 budget.add_publisher(linkbudget.PDFPublisher("report.pdf", title="Downlink"))
 budget.add_publisher(linkbudget.HTMLPublisher("report.html", title="Downlink"))
 budget.add_publisher(linkbudget.WaterfallPublisher("cascade.png"))
-budget.publish()   # one compute(), four outputs
+budget.publish()   # one compute(), four outputs (stdout + the three files)
 ```
 
 ## `StdOutPublisher`

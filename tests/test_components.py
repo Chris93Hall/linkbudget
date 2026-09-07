@@ -11,7 +11,7 @@ import pytest
 from linkbudget import convert
 from linkbudget import link_container as lc
 
-C = 2.99792458e8  # speed of light, m/s (matches the value hard-coded in the package)
+C = convert.SPEED_OF_LIGHT  # speed of light, m/s
 
 
 def assert_io_keys(result, signal_in, noise_in):

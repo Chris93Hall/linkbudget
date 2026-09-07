@@ -57,19 +57,19 @@ class LinkContainer:
 
     @property
     def publisher(self) -> publishers.Publisher | None:
-        """The first installed publisher (backwards-compatible accessor)."""
+        """The first installed publisher; assign to replace the whole list."""
         return self.publishers[0] if self.publishers else None
 
     @publisher.setter
     def publisher(self, value: publishers.Publisher | None) -> None:
         self.publishers = [value] if value is not None else []
 
-    def install_publisher(self, publisher: publishers.Publisher) -> None:
-        """Replace every installed publisher with ``publisher``."""
-        self.publishers = [publisher]
-
     def add_publisher(self, publisher: publishers.Publisher) -> None:
-        """Add another publisher; ``publish()`` runs every installed one."""
+        """Add another publisher; ``publish()`` runs every installed one.
+
+        A new container starts with a `StdOutPublisher`; assign
+        ``publisher`` / ``publishers`` to drop or replace it.
+        """
         self.publishers.append(publisher)
 
     def publish(self) -> None:
@@ -221,7 +221,7 @@ class FreeSpacePathLoss(Component):
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Divide the signal and noise power by the free-space path loss."""
-        fspl = (4.0 * np.pi * self.distance * self.frequency / 2.99792458e8) ** 2
+        fspl = (4.0 * np.pi * self.distance * self.frequency / convert.SPEED_OF_LIGHT) ** 2
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
@@ -230,7 +230,7 @@ class FreeSpacePathLoss(Component):
                      'noise_power_out': noise_power / fspl,
                      'distance': self.distance,
                      'frequency': self.frequency,
-                     'speed_of_light': 2.99792458e8,
+                     'speed_of_light': convert.SPEED_OF_LIGHT,
                      'speed_of_light_units': 'meters per second',
                      'free_space_path_loss_formula':
                          '(4.0 * Pi * frequency * distance / speed_of_light) ^ 2'}
@@ -664,7 +664,7 @@ class RadarPathLoss(Component):
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Apply the two-way radar range-equation path term."""
-        wavelength = 2.99792458e8 / self.frequency
+        wavelength = convert.SPEED_OF_LIGHT / self.frequency
         rcs_m2 = convert.db_to_linear(self.rcs_db)
         path_term = ((wavelength**2 * rcs_m2)
                      / ((4.0 * np.pi)**3 * self.tx_distance**2 * self.rx_distance**2))
@@ -711,7 +711,7 @@ class RadarPathLossOneWay(Component):
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Apply this leg's half of the two-way wavelength term."""
-        wavelength = 2.99792458e8 / self.frequency
+        wavelength = convert.SPEED_OF_LIGHT / self.frequency
         path_term = wavelength / ((4.0 * np.pi)**1.5 * self.distance**2)
         data_dict = {'name': self.name,
                      'description': self.description,

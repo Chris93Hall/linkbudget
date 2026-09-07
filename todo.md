@@ -85,14 +85,14 @@ Status legend: `[x]` done · `[~]` partly done · `[ ]` not started
 - [ ] Parameter sweeps (margin vs range / elevation / frequency / data rate).
 - [ ] Tolerance / Monte-Carlo analysis (per-parameter 3σ, worst-case vs RSS).
 - [x] Allow multiple simultaneous publishers (`add_publisher`; `publish()` runs
-  all of them). `install_publisher` still replaces; `.publisher` kept as a
-  backwards-compatible accessor for the first one.
+  all of them). `.publisher` / `.publishers` are read/write accessors for
+  replacing or clearing the list.
 - [ ] Editable component list (lookup / insert / remove / replace by name), `__repr__`.
 - [ ] Bidirectional links (uplink + downlink + transponder, end-to-end C/N).
 - [ ] Shared carrier frequency flowing through frequency-dependent components
   instead of each one taking its own `frequency` argument.
-- [ ] Move the hard-coded `2.99792458e8` in `link_container` onto
-  `convert.SPEED_OF_LIGHT` (constant added; existing call sites not yet migrated).
+- [x] Move the hard-coded `2.99792458e8` in `link_container` onto
+  `convert.SPEED_OF_LIGHT`.
 
 ## 7. Validation & robustness
 

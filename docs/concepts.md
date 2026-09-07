@@ -78,16 +78,16 @@ and what `budget.check()` flags.
 
 ## Publishers
 
-A publisher turns the computed `data_list` into output. Install one, or
+A publisher turns the computed `data_list` into output. Add one, or
 [several at once](guide/publishers.md):
 
 ```python
-budget.install_publisher(linkbudget.StdOutPublisher())   # replace all
-budget.add_publisher(linkbudget.HTMLPublisher("out.html"))  # append
+budget.add_publisher(linkbudget.HTMLPublisher("out.html"))
 budget.add_publisher(linkbudget.WaterfallPublisher("out.png"))
-budget.publish()   # runs all three
+budget.publish()   # runs stdout + the two you added
 ```
 
-`StdOutPublisher` is installed by default. Write your own by subclassing
+`StdOutPublisher` is installed by default; assign `budget.publisher` (or
+`budget.publishers`) to drop or replace it. Write your own by subclassing
 `linkbudget.publishers.Publisher` and implementing
 `publish(data_list, power_units="W")`.

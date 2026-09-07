@@ -28,13 +28,6 @@ class TestConstruction:
     def test_power_units_are_configurable(self):
         assert lc.LinkContainer(power_units="mW").power_units == "mW"
 
-    def test_install_publisher_replaces_the_default(self):
-        budget = lc.LinkContainer()
-        rec = RecordingPublisher()
-        budget.install_publisher(rec)
-        assert budget.publisher is rec
-        assert budget.publishers == [rec]
-
     def test_starts_with_exactly_one_publisher(self):
         assert len(lc.LinkContainer().publishers) == 1
 
@@ -54,7 +47,7 @@ class TestMultiplePublishers:
     def test_add_publisher_appends(self):
         budget = lc.LinkContainer()
         first, second = RecordingPublisher(), RecordingPublisher()
-        budget.install_publisher(first)
+        budget.publisher = first
         budget.add_publisher(second)
         assert budget.publishers == [first, second]
 
@@ -62,7 +55,7 @@ class TestMultiplePublishers:
         budget = lc.LinkContainer(power_units="mW")
         budget.add_component(lc.SignalSource("s", "", signal_power=2.0, noise_power=1.0))
         one, two, three = RecordingPublisher(), RecordingPublisher(), RecordingPublisher()
-        budget.install_publisher(one)
+        budget.publisher = one
         budget.add_publisher(two)
         budget.add_publisher(three)
 
@@ -144,7 +137,7 @@ class TestPublish:
     def test_publish_computes_then_delegates_to_the_publisher(self):
         budget = lc.LinkContainer(power_units="mW")
         rec = RecordingPublisher()
-        budget.install_publisher(rec)
+        budget.publisher = rec
         budget.add_component(lc.SignalSource("src", "", signal_power=2.0, noise_power=1.0))
 
         budget.publish()

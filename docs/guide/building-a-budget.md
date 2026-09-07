@@ -87,7 +87,6 @@ field is also available programmatically (`summary.eirp_dbw`,
 ## 7. Publish reports
 
 ```python
-budget.install_publisher(linkbudget.StdOutPublisher())
 budget.add_publisher(linkbudget.HTMLPublisher("link.html", title="6 GHz hop"))
 budget.add_publisher(linkbudget.PDFPublisher("link.pdf", title="6 GHz hop"))
 budget.add_publisher(linkbudget.WaterfallPublisher("link.png"))

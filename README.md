@@ -29,8 +29,7 @@ python -m build
 ```python
 import linkbudget
 
-budget = linkbudget.LinkContainer()
-budget.install_publisher(linkbudget.StdOutPublisher())
+budget = linkbudget.LinkContainer()  # publishes to stdout by default
 
 budget.add_component(linkbudget.SignalSource(
     'Signal source',
@@ -75,16 +74,16 @@ The container that holds the chain of components and drives the computation.
 
 ```python
 budget = linkbudget.LinkContainer(power_units='W')  # 'W' (watts) is the default
-budget.install_publisher(linkbudget.StdOutPublisher())  # optional, this is the default
-budget.add_component(...)                                 # add as many as needed, in order
-budget.publish()                                           # computes and publishes the result
+budget.add_component(...)                            # add as many as needed, in order
+budget.add_publisher(...)                            # optional; stdout is on by default
+budget.publish()                                     # computes and publishes the result
 ```
 
 - `power_units` — a display label for whatever **linear** units your `signal_power`/`noise_power` values are actually in (e.g. `'W'`, `'mW'`). Every component adds/multiplies these values directly (never in log scale), so the label must name a linear unit, not a dB-referenced one like `'dBm'`/`'dBW'` — those would be inconsistent with the actual arithmetic. It's purely cosmetic: it's passed through to the installed publisher and shown in power-related table headers and detailed-report field labels, but doesn't rescale any numbers — pick units consistently across every component you add (e.g. `ThermalNoise`'s `k·T·B` is always in watts, so if you use it, keep everything else in watts too).
 - `add_component(component)` — appends a component to the chain.
-- `install_publisher(publisher)` — sets how results are output (default is `StdOutPublisher`).
+- `add_publisher(publisher)` — adds another output. A new container already has a `StdOutPublisher`; assign `.publisher` (or `.publishers`) to drop or replace it.
 - `compute()` — runs signal/noise power through each component in order, computing signal gain, noise gain, and SNR at every stage. Called automatically by `publish()`.
-- `publish()` — calls `compute()` then hands the resulting data, along with `power_units`, to the installed publisher.
+- `publish()` — calls `compute()` then hands the resulting data, along with `power_units`, to every installed publisher.
 
 Components are evaluated **in the order they were added**; each component's output signal/noise power becomes the next component's input.
 
@@ -121,7 +120,7 @@ Every component is constructed with a `name` and `description` (used for reporti
 
 ### Publishers
 
-Publishers control how the computed link budget is reported. Every built-in publisher labels power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)"). Install one with `install_publisher()`, or add several with `add_publisher()` and `publish()` runs them all. See the [documentation](https://chris93hall.github.io/linkbudget/guide/publishers/) for the full list.
+Publishers control how the computed link budget is reported. Every built-in publisher labels power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)"). Add one or more with `add_publisher()` and `publish()` runs them all (a new container already publishes to stdout). See the [documentation](https://chris93hall.github.io/linkbudget/guide/publishers/) for the full list.
 
 - **`StdOutPublisher`** — prints a summary table and a detailed per-stage report to the console. This is the default publisher if none is installed.
 - **`PDFPublisher(fpath, title='Link Budget Report')`** — writes the same summary + detailed report to a styled PDF file at `fpath` (requires the `fpdf2` package), visually matching `HTMLPublisher`'s layout and colors (striped tables, a dark header row, a title banner), with automatic multi-page pagination.
@@ -132,10 +131,12 @@ Publishers control how the computed link budget is reported. Every built-in publ
 ```python
 budget = linkbudget.LinkContainer(power_units='mW')
 
-budget.install_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
-budget.publish()
+budget.add_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
+budget.add_publisher(linkbudget.HTMLPublisher('example_link_budget.html'))
+budget.publish()   # writes the PDF and the HTML (and still prints to stdout)
 
-budget.install_publisher(linkbudget.HTMLPublisher('example_link_budget.html'))
+# to suppress the default stdout output, replace the publisher list instead:
+budget.publisher = linkbudget.PDFPublisher('example_link_budget.pdf')
 budget.publish()
 ```
 
