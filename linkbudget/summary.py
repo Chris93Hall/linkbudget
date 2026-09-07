@@ -145,7 +145,7 @@ def summarize(data_list: StageList, components: Sequence[Component] | None = Non
               noise_bandwidth: float | None = None, data_rate: float | None = None,
               symbol_rate: float | None = None,
               carrier_frequency: float | None = None) -> BudgetSummary:
-    """Build a :class:`BudgetSummary` from a computed ``data_list`` and the
+    """Build a `BudgetSummary` from a computed ``data_list`` and the
     component list that produced it."""
     components = list(components or [])
     summary = BudgetSummary(stages=list(data_list),

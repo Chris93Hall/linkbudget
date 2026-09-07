@@ -121,11 +121,13 @@ Every component is constructed with a `name` and `description` (used for reporti
 
 ### Publishers
 
-Publishers control how the computed link budget is reported. All three built-in publishers label power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)").
+Publishers control how the computed link budget is reported. Every built-in publisher labels power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)"). Install one with `install_publisher()`, or add several with `add_publisher()` and `publish()` runs them all. See the [documentation](https://chris93hall.github.io/linkbudget/guide/publishers/) for the full list.
 
 - **`StdOutPublisher`** — prints a summary table and a detailed per-stage report to the console. This is the default publisher if none is installed.
 - **`PDFPublisher(fpath, title='Link Budget Report')`** — writes the same summary + detailed report to a styled PDF file at `fpath` (requires the `fpdf2` package), visually matching `HTMLPublisher`'s layout and colors (striped tables, a dark header row, a title banner), with automatic multi-page pagination.
 - **`HTMLPublisher(fpath, title='Link Budget Report')`** — writes a single self-contained HTML file at `fpath` with a styled summary table and a detailed per-component breakdown.
+- **`MarkdownPublisher(fpath, title='Link Budget Report')`** — writes the same tables as a GitHub-flavoured Markdown (`.md`) file.
+- **`WaterfallPublisher(fpath, title='Link Budget Cascade')`** — renders the signal/noise/SNR cascade to an image (requires `matplotlib`; `pip install linkbudget[plot]`).
 
 ```python
 budget = linkbudget.LinkContainer(power_units='mW')

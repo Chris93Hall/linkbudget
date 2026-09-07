@@ -1,13 +1,12 @@
 """
 waterfall_publisher.py
 
-A :class:`~linkbudget.publishers.Publisher` that renders the signal- and
-noise-power cascade ("waterfall") through the budget stages to an image
-file.  The output format is taken from the file extension (``.png``,
-``.svg``, ``.pdf`` ...).
+`WaterfallPublisher` -- renders the signal- and noise-power cascade
+("waterfall") through the budget stages to an image file.  The output format
+is taken from the file extension (``.png``, ``.svg``, ``.pdf`` ...).
 
-``matplotlib`` is imported lazily inside :meth:`WaterfallPublisher.publish`,
-so it is only required when this publisher is actually used.  Install it with
+``matplotlib`` is imported lazily inside ``WaterfallPublisher.publish``, so
+it is only required when this publisher is actually used.  Install it with
 ``pip install linkbudget[plot]``.
 """
 
@@ -47,6 +46,7 @@ class WaterfallPublisher(Publisher):
         self.dpi = dpi
 
     def publish(self, data_list: StageList, power_units: str = "W") -> None:
+        """Render the cascade to ``self.fpath`` (format from the extension)."""
         # matplotlib is an optional dependency, only needed for this publisher
         import matplotlib  # pylint: disable=import-outside-toplevel
         matplotlib.use("Agg")

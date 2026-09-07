@@ -7,7 +7,7 @@ noise figures, antennas, atmospheric losses — and the library propagates
 signal and noise power through the chain, computing gain and SNR at every
 stage. From there it derives the standard figures of merit (EIRP, G/T,
 C/N&#8320;, E&#8203;b/N&#8320;) and a link-margin verdict, and can publish the
-result to the console, a PDF or HTML report, or a waterfall plot.
+result to the console, a PDF / HTML / Markdown report, or a waterfall plot.
 
 ```python
 import linkbudget
@@ -46,7 +46,7 @@ print(budget.summary())
   ground reflection](guide/propagation.md).
 - **Antenna models.** [Parabolic-dish gain, beam pointing loss and
   polarization mismatch](guide/antennas.md).
-- **Publishers.** Console, PDF, HTML and a matplotlib
+- **Publishers.** Console, PDF, HTML, Markdown and a matplotlib
   [waterfall / cascade plot](guide/publishers.md); run several at once.
 
 ## Where to go next

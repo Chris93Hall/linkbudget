@@ -39,9 +39,12 @@ EXPECTED_EXPORTS = [
     "LinkMargin",
     "Component",
     "BudgetSummary",
+    "LinkBudgetWarning",
+    "check_budget",
     "StdOutPublisher",
     "PDFPublisher",
     "HTMLPublisher",
+    "MarkdownPublisher",
     "WaterfallPublisher",
 ]
 

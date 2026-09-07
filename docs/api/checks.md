@@ -1,0 +1,3 @@
+# `linkbudget.checks`
+
+::: linkbudget.checks

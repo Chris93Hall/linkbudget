@@ -10,6 +10,7 @@ from .antennas import (
     gaussian_beam_pointing_loss_db,
     polarization_efficiency,
 )
+from .checks import LinkBudgetWarning, check_budget
 from .html_publisher import HTMLPublisher
 from .link_container import (
     AnalogToDigitalConverter,
@@ -36,6 +37,7 @@ from .link_container import (
     ThermalNoise,
 )
 from .margin import LinkMargin
+from .markdown_publisher import MarkdownPublisher
 from .pdf_publisher import PDFPublisher
 from .propagation import (
     AtmosphericAbsorption,
@@ -92,9 +94,13 @@ __all__ = [  # noqa: RUF022  -- grouped by role, not alphabetised
     "TwoRayGroundReflection",
     # margin
     "LinkMargin",
+    # validation
+    "LinkBudgetWarning",
+    "check_budget",
     # publishers
     "StdOutPublisher",
     "PDFPublisher",
     "HTMLPublisher",
+    "MarkdownPublisher",
     "WaterfallPublisher",
 ]

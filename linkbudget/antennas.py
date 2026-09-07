@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 
-from . import convert
+from . import _validate, convert
 from ._types import StageData
 from .link_container import Component
 
@@ -22,6 +22,9 @@ BEAMWIDTH_CONSTANT_DEG: float = 70.0
 def dish_gain_dbi(diameter_m: float, frequency_hz: float,
                   efficiency: float = DEFAULT_APERTURE_EFFICIENCY) -> float:
     """Boresight gain (dBi) of a circular-aperture (parabolic) antenna."""
+    _validate.positive("diameter_m", diameter_m)
+    _validate.positive("frequency_hz", frequency_hz)
+    _validate.in_range("efficiency", efficiency, 0.0, 1.0, low_open=True)
     wavelength = convert.SPEED_OF_LIGHT / frequency_hz
     return convert.linear_to_db(efficiency * (math.pi * diameter_m / wavelength) ** 2)
 
@@ -29,6 +32,8 @@ def dish_gain_dbi(diameter_m: float, frequency_hz: float,
 def dish_half_power_beamwidth_deg(diameter_m: float, frequency_hz: float,
                                   beamwidth_constant: float = BEAMWIDTH_CONSTANT_DEG) -> float:
     """Approximate half-power (-3 dB) beamwidth (degrees) of a parabolic dish."""
+    _validate.positive("diameter_m", diameter_m)
+    _validate.positive("frequency_hz", frequency_hz)
     wavelength = convert.SPEED_OF_LIGHT / frequency_hz
     return beamwidth_constant * wavelength / diameter_m
 
@@ -38,6 +43,8 @@ def gaussian_beam_pointing_loss_db(offset_deg: float,
     """Main-lobe loss (dB) for a direction ``offset_deg`` off boresight of a
     beam with the given -3 dB beamwidth, using the standard quadratic
     (Gaussian) approximation ``L = 12 (offset / HPBW)**2``."""
+    _validate.non_negative("offset_deg", offset_deg)
+    _validate.positive("half_power_beamwidth_deg", half_power_beamwidth_deg)
     return 12.0 * (offset_deg / half_power_beamwidth_deg) ** 2
 
 
@@ -75,12 +82,13 @@ class ParabolicDish(Component):
                  role: str | None = None) -> None:
         self.name = name
         self.description = description
-        self.diameter = diameter
-        self.frequency = frequency
-        self.efficiency = efficiency
-        self.role = role
+        self.diameter = _validate.positive("diameter", diameter)
+        self.frequency = _validate.positive("frequency", frequency)
+        self.efficiency = _validate.in_range("efficiency", efficiency, 0.0, 1.0, low_open=True)
+        self.role = _validate.one_of("role", role, (None, "tx", "rx"))
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Apply the dish boresight gain to the signal and the noise."""
         gain_dbi = dish_gain_dbi(self.diameter, self.frequency, self.efficiency)
         beamwidth_deg = dish_half_power_beamwidth_deg(self.diameter, self.frequency)
         gain_linear = convert.db_to_linear(gain_dbi)
@@ -110,15 +118,18 @@ class BeamPointingLoss(Component):
                  diameter: float | None = None, frequency: float | None = None) -> None:
         self.name = name
         self.description = description
-        self.pointing_error_deg = pointing_error_deg
+        self.pointing_error_deg = _validate.non_negative(
+            "pointing_error_deg", pointing_error_deg)
         if half_power_beamwidth_deg is None:
             if diameter is None or frequency is None:
                 raise ValueError(
                     "give half_power_beamwidth_deg, or both diameter and frequency")
             half_power_beamwidth_deg = dish_half_power_beamwidth_deg(diameter, frequency)
-        self.half_power_beamwidth_deg = half_power_beamwidth_deg
+        self.half_power_beamwidth_deg = _validate.positive(
+            "half_power_beamwidth_deg", half_power_beamwidth_deg)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate the signal by the pointing loss (noise unchanged)."""
         loss_db = gaussian_beam_pointing_loss_db(
             self.pointing_error_deg, self.half_power_beamwidth_deg)
         loss_linear = convert.db_to_linear(loss_db)
@@ -147,6 +158,7 @@ class PolarizationMismatchLoss(Component):
         self.tilt_angle_deg = tilt_angle_deg
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Scale the signal by the polarization efficiency (noise unchanged)."""
         efficiency = polarization_efficiency(
             self.axial_ratio_db_tx, self.axial_ratio_db_rx, self.tilt_angle_deg)
         loss_db = -convert.linear_to_db(efficiency)

@@ -74,14 +74,17 @@ nav:
       - Propagation models: guide/propagation.md
       - Antenna models: guide/antennas.md
       - Publishers: guide/publishers.md
+      - Validation & warnings: guide/validation.md
   - Component reference: components.md
   - API reference:
       - linkbudget.link_container: api/link_container.md
       - linkbudget.antennas: api/antennas.md
       - linkbudget.propagation: api/propagation.md
       - linkbudget.margin: api/margin.md
+      - linkbudget.checks: api/checks.md
       - linkbudget.summary: api/summary.md
       - linkbudget.fom: api/fom.md
       - linkbudget.publishers: api/publishers.md
+      - linkbudget.markdown_publisher: api/markdown_publisher.md
       - linkbudget.waterfall_publisher: api/waterfall_publisher.md
       - linkbudget.convert: api/convert.md

@@ -1,5 +1,12 @@
 """
 publishers.py
+
+The `Publisher` base class, the default `StdOutPublisher`, and
+the small number-formatting helpers the file publishers share.
+
+A publisher receives the computed ``data_list`` (a list of per-stage dicts)
+plus the container's ``power_units`` label and turns it into output.  Write
+your own by subclassing `Publisher` and implementing ``publish``.
 """
 
 from __future__ import annotations
@@ -17,12 +24,22 @@ POWER_FIELDS = {'signal_power_in', 'signal_power_out', 'noise_power_in', 'noise_
                  'quantization_noise', 'thermal_noise_power', 'image_noise_power'}
 
 def label_with_units(key: str, power_units: str) -> str:
+    """Turn a stage-dict key into a display label.
+
+    Underscores become spaces, and ``(power_units)`` is appended to keys that
+    hold an absolute power (see `POWER_FIELDS`).
+    """
     pretty_key = key.replace('_', ' ')
     if key in POWER_FIELDS:
         return f'{pretty_key} ({power_units})'
     return pretty_key
 
 def pad_string(string: Any, length: int, side: str = 'left') -> str:
+    """Pad ``string`` with spaces to ``length`` characters.
+
+    ``side`` is ``"left"`` (pad on the left) or anything else (pad on the
+    right).  A string already at least ``length`` long is returned unchanged.
+    """
     string = str(string)
     str_len = len(string)
     if str_len >= length:
@@ -34,6 +51,7 @@ def pad_string(string: Any, length: int, side: str = 'left') -> str:
     return (' ' * rem_length) + string
 
 def trunc_float(flt: float) -> float:
+    """Round ``flt`` to six decimal places (via ``"%f"`` formatting)."""
     return float(f'{flt:4f}')
 
 def format_number(val: Any, sig_figs: int = 6) -> str:
@@ -54,6 +72,9 @@ def format_number(val: Any, sig_figs: int = 6) -> str:
     return f'{float(val):.{sig_figs}g}'
 
 def float_to_bounded_str(val: float, str_length: int = 12, sig_figs: int = 6) -> str:
+    """Format ``val`` like `format_number`, then drop significant
+    figures one at a time until the string fits in ``str_length`` characters
+    (a best-effort result is returned if even one figure does not fit)."""
     val_str = format_number(val, sig_figs)
     if len(val_str) <= str_length:
         return val_str
@@ -66,19 +87,34 @@ def float_to_bounded_str(val: float, str_length: int = 12, sig_figs: int = 6) ->
     return val_str
 
 class Publisher(ABC):
+    """Base class for everything that reports a computed link budget.
+
+    Subclasses implement `publish`, which receives ``data_list`` -- the
+    list of per-stage dicts produced by ``LinkContainer.compute()`` -- and
+    the container's ``power_units`` display label.
+    """
+
     @abstractmethod
     def __init__(self) -> None:
         pass
 
     @abstractmethod
     def publish(self, data_list: StageList, power_units: str = 'W') -> None:
-        pass
+        """Report ``data_list`` (each stage dict carries at least ``name``,
+        ``description``, ``signal_power_in``/``out``, ``noise_power_in``/``out``,
+        ``signal_gain``, ``noise_gain`` and ``snr``)."""
 
 class StdOutPublisher(Publisher):
+    """Print a summary table and a detailed per-stage report to the console.
+
+    This is the publisher a ``LinkContainer`` installs by default.
+    """
+
     def __init__(self) -> None:
         pass
 
     def publish_summary(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Print the one-row-per-stage summary table."""
         print('-'*120)
         print('|      LINK BUDGET SUMMARY')
         print('-'*120)
@@ -103,6 +139,7 @@ class StdOutPublisher(Publisher):
             print(f'        {description}')
 
     def publish_detailed(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Print every field of every stage, one stage per section."""
         print('-'*120)
         print('|      DETAILED LINK BUDGET REPORT')
         print('-'*120)
@@ -114,6 +151,7 @@ class StdOutPublisher(Publisher):
                 print(f'      {pretty_key}: {format_number(data[key])}')
 
     def publish(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Print the summary table followed by the detailed report."""
         self.publish_summary(data_list, power_units)
         print()
         self.publish_detailed(data_list, power_units)

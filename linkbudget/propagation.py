@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from . import convert
+from . import _validate, convert
 from ._types import StageData
 from .link_container import Component
 
@@ -33,7 +33,7 @@ from .link_container import Component
 
 def oxygen_specific_attenuation_db_per_km(frequency_ghz: float) -> float:
     """Specific attenuation from dry air / oxygen (dB/km), valid f <= 57 GHz."""
-    freq = frequency_ghz
+    freq = _validate.positive("frequency_ghz", frequency_ghz)
     return (7.19e-3
             + 6.09 / (freq ** 2 + 0.227)
             + 4.81 / ((freq - 57.0) ** 2 + 1.50)) * freq ** 2 * 1e-3
@@ -45,8 +45,8 @@ def water_vapor_specific_attenuation_db_per_km(frequency_ghz: float,
 
     ``water_vapor_density`` is the absolute humidity in g/m**3 (7.5 is the
     ITU-R reference value)."""
-    freq = frequency_ghz
-    rho = water_vapor_density
+    freq = _validate.positive("frequency_ghz", frequency_ghz)
+    rho = _validate.non_negative("water_vapor_density", water_vapor_density)
     return (0.050
             + 0.0021 * rho
             + 3.6 / ((freq - 22.2) ** 2 + 8.5)
@@ -71,16 +71,19 @@ class AtmosphericAbsorption(Component):
                  oxygen_height_km: float = 6.0, water_height_km: float = 2.1) -> None:
         self.name = name
         self.description = description
-        self.frequency = frequency
-        self.water_vapor_density = water_vapor_density
+        self.frequency = _validate.positive("frequency", frequency)
+        self.water_vapor_density = _validate.non_negative(
+            "water_vapor_density", water_vapor_density)
         if path_length_km is None and elevation_deg is None:
             raise ValueError("give path_length_km or elevation_deg")
-        self.path_length_km = path_length_km
-        self.elevation_deg = elevation_deg
-        self.oxygen_height_km = oxygen_height_km
-        self.water_height_km = water_height_km
+        self.path_length_km = _validate.optional_positive("path_length_km", path_length_km)
+        self.elevation_deg = _validate.optional_in_range(
+            "elevation_deg", elevation_deg, 0.0, 90.0, low_open=True)
+        self.oxygen_height_km = _validate.positive("oxygen_height_km", oxygen_height_km)
+        self.water_height_km = _validate.positive("water_height_km", water_height_km)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate the signal and noise by the gaseous absorption over the path."""
         freq_ghz = self.frequency / 1e9
         gamma_o = oxygen_specific_attenuation_db_per_km(freq_ghz)
         gamma_w = water_vapor_specific_attenuation_db_per_km(
@@ -152,6 +155,7 @@ def rain_kalpha(frequency_hz: float, polarization_tilt_deg: float = 45.0,
                 elevation_deg: float = 90.0) -> tuple[float, float]:
     """ITU-R P.838-3 ``k`` and ``alpha`` for the given frequency, polarization
     tilt (45 deg = circular) and path elevation."""
+    _validate.positive("frequency_hz", frequency_hz)
     log_freq = math.log10(frequency_hz / 1e9)
     k_h = 10.0 ** _p838_fit(_P838["kh"], log_freq)
     k_v = 10.0 ** _p838_fit(_P838["kv"], log_freq)
@@ -170,6 +174,7 @@ def rain_specific_attenuation_db_per_km(frequency_hz: float, rain_rate_mm_h: flo
                                         polarization_tilt_deg: float = 45.0,
                                         elevation_deg: float = 90.0) -> float:
     """ITU-R P.838-3 specific rain attenuation ``gamma_R = k R**alpha`` (dB/km)."""
+    _validate.non_negative("rain_rate_mm_h", rain_rate_mm_h)
     if rain_rate_mm_h <= 0.0:
         return 0.0
     k, alpha = rain_kalpha(frequency_hz, polarization_tilt_deg, elevation_deg)
@@ -197,15 +202,17 @@ class RainAttenuation(Component):
                  station_height_km: float = 0.0, latitude_deg: float | None = None) -> None:
         self.name = name
         self.description = description
-        self.frequency = frequency
-        self.rain_rate = rain_rate
+        self.frequency = _validate.positive("frequency", frequency)
+        self.rain_rate = _validate.non_negative("rain_rate", rain_rate)
         self.polarization_tilt_deg = polarization_tilt_deg
         if path_length_km is None and elevation_deg is None:
             raise ValueError("give path_length_km or elevation_deg")
-        self.path_length_km = path_length_km
-        self.elevation_deg = elevation_deg
-        self.rain_height_km = rain_height_km
-        self.station_height_km = station_height_km
+        self.path_length_km = _validate.optional_positive("path_length_km", path_length_km)
+        self.elevation_deg = _validate.optional_in_range(
+            "elevation_deg", elevation_deg, 0.0, 90.0, low_open=True)
+        self.rain_height_km = _validate.positive("rain_height_km", rain_height_km)
+        self.station_height_km = _validate.non_negative(
+            "station_height_km", station_height_km)
         self.latitude_deg = latitude_deg
 
     def _effective_path_km(self, gamma_r: float) -> float:
@@ -237,6 +244,7 @@ class RainAttenuation(Component):
         return length_r * vertical
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate the signal and noise by the rain loss over the effective path."""
         elevation = self.elevation_deg if self.elevation_deg is not None else 90.0
         gamma_r = rain_specific_attenuation_db_per_km(
             self.frequency, self.rain_rate, self.polarization_tilt_deg, elevation)
@@ -264,6 +272,8 @@ def cloud_specific_attenuation_coefficient(frequency_hz: float,
                                            temperature_k: float = 273.15) -> float:
     """ITU-R P.840 cloud liquid-water specific attenuation coefficient
     ``K_l`` in (dB/km) per (g/m**3)."""
+    _validate.positive("frequency_hz", frequency_hz)
+    _validate.positive("temperature_k", temperature_k)
     freq_ghz = frequency_hz / 1e9
     theta = 300.0 / temperature_k
     eps0 = 77.66 + 103.3 * (theta - 1.0)
@@ -296,18 +306,22 @@ class CloudFogAttenuation(Component):
                  path_length_km: float | None = None) -> None:
         self.name = name
         self.description = description
-        self.frequency = frequency
-        self.temperature_k = temperature_k
+        self.frequency = _validate.positive("frequency", frequency)
+        self.temperature_k = _validate.positive("temperature_k", temperature_k)
         if liquid_water_path is None and (liquid_water_density is None
                                           or path_length_km is None):
             raise ValueError(
                 "give liquid_water_path, or liquid_water_density and path_length_km")
-        self.liquid_water_path = liquid_water_path
-        self.elevation_deg = elevation_deg
-        self.liquid_water_density = liquid_water_density
-        self.path_length_km = path_length_km
+        self.liquid_water_path = _validate.optional_non_negative(
+            "liquid_water_path", liquid_water_path)
+        self.elevation_deg = _validate.in_range(
+            "elevation_deg", elevation_deg, 0.0, 90.0, low_open=True)
+        self.liquid_water_density = _validate.optional_non_negative(
+            "liquid_water_density", liquid_water_density)
+        self.path_length_km = _validate.optional_positive("path_length_km", path_length_km)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate the signal and noise by the cloud / fog liquid-water loss."""
         k_l = cloud_specific_attenuation_coefficient(self.frequency, self.temperature_k)
         if self.liquid_water_path is not None:
             loss_db = k_l * self.liquid_water_path / math.sin(math.radians(self.elevation_deg))
@@ -349,6 +363,10 @@ def scintillation_std_db(frequency_hz: float, elevation_deg: float,
                          relative_humidity_percent: float = 50.0) -> float:
     """Standard deviation (dB) of the tropospheric scintillation fade
     (ITU-R P.618 section 2.4.1)."""
+    _validate.positive("frequency_hz", frequency_hz)
+    _validate.in_range("elevation_deg", elevation_deg, 0.0, 90.0, low_open=True)
+    _validate.positive("antenna_diameter_m", antenna_diameter_m)
+    _validate.in_range("antenna_efficiency", antenna_efficiency, 0.0, 1.0, low_open=True)
     freq_ghz = frequency_hz / 1e9
     if n_wet is None:
         n_wet = _wet_refractivity(temperature_c, relative_humidity_percent)
@@ -385,16 +403,21 @@ class TroposphericScintillation(Component):
                  time_percent: float = 0.01) -> None:
         self.name = name
         self.description = description
-        self.frequency = frequency
-        self.elevation_deg = elevation_deg
-        self.antenna_diameter = antenna_diameter
-        self.antenna_efficiency = antenna_efficiency
-        self.n_wet = n_wet
+        self.frequency = _validate.positive("frequency", frequency)
+        self.elevation_deg = _validate.in_range(
+            "elevation_deg", elevation_deg, 0.0, 90.0, low_open=True)
+        self.antenna_diameter = _validate.positive("antenna_diameter", antenna_diameter)
+        self.antenna_efficiency = _validate.in_range(
+            "antenna_efficiency", antenna_efficiency, 0.0, 1.0, low_open=True)
+        self.n_wet = _validate.optional_non_negative("n_wet", n_wet)
         self.temperature_c = temperature_c
-        self.relative_humidity_percent = relative_humidity_percent
-        self.time_percent = time_percent
+        self.relative_humidity_percent = _validate.in_range(
+            "relative_humidity_percent", relative_humidity_percent, 0.0, 100.0)
+        self.time_percent = _validate.in_range(
+            "time_percent", time_percent, 0.0, 50.0, low_open=True)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate the signal by the scintillation fade depth (noise unchanged)."""
         sigma = scintillation_std_db(
             self.frequency, self.elevation_deg, self.antenna_diameter,
             self.antenna_efficiency, self.n_wet,
@@ -434,12 +457,13 @@ class TwoRayGroundReflection(Component):
                  rx_height: float = 2.0, frequency: float | None = None) -> None:
         self.name = name
         self.description = description
-        self.distance = distance
-        self.tx_height = tx_height
-        self.rx_height = rx_height
-        self.frequency = frequency
+        self.distance = _validate.positive("distance", distance)
+        self.tx_height = _validate.positive("tx_height", tx_height)
+        self.rx_height = _validate.positive("rx_height", rx_height)
+        self.frequency = _validate.optional_positive("frequency", frequency)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate the signal and noise by the two-ray path loss."""
         plane_earth_loss = (self.distance ** 2 / (self.tx_height * self.rx_height)) ** 2
 
         crossover = None

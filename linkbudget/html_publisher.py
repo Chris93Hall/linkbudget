@@ -1,5 +1,8 @@
 """
 html_publisher.py
+
+`HTMLPublisher` -- writes the link budget as a single self-contained,
+styled HTML file.
 """
 
 from __future__ import annotations
@@ -52,6 +55,11 @@ PAGE_TEMPLATE = """<!doctype html>
 
 
 class HTMLPublisher(Publisher):
+    """Write the budget to ``fpath`` as one self-contained HTML file: a styled
+    summary table followed by a per-component field breakdown.  Component
+    names and descriptions are HTML-escaped; the file is UTF-8.
+    """
+
     def __init__(self, fpath: str, title: str = 'Link Budget Report') -> None:
         self.fpath = fpath
         self.title = title
@@ -87,6 +95,7 @@ class HTMLPublisher(Publisher):
         return '\n'.join(sections)
 
     def publish(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Render the report and write it to ``self.fpath``."""
         html_doc = PAGE_TEMPLATE.format(
             title=html_lib.escape(self.title),
             power_units=html_lib.escape(power_units),

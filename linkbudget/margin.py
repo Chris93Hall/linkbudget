@@ -86,6 +86,8 @@ class LinkMargin(Component):
         return "SNR", achieved_snr_db, self.required_snr_db
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Pass the power through unchanged; annotate the stage with the
+        achieved metric, the requirement and the resulting margin."""
         if noise_power > 0.0:
             achieved_snr = signal_power / noise_power
         else:

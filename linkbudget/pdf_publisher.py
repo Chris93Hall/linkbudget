@@ -1,5 +1,8 @@
 """
 pdf_publisher.py
+
+`PDFPublisher` -- writes the link budget as a styled, paginated PDF
+(via ``fpdf2``), visually matching `HTMLPublisher`.
 """
 
 from __future__ import annotations
@@ -18,6 +21,11 @@ BORDER_COLOR = (221, 221, 221) # matches HTMLPublisher's border color (#ddd)
 
 
 class PDFPublisher(Publisher):
+    """Write the budget to ``fpath`` as a styled A4 PDF: a title banner, the
+    summary table, then a per-component field breakdown, with automatic
+    multi-page pagination.  Requires the ``fpdf2`` package.
+    """
+
     def __init__(self, fpath: str, title: str = 'Link Budget Report') -> None:
         self.fpath = fpath
         self.title = title
@@ -46,6 +54,7 @@ class PDFPublisher(Publisher):
         self.pdf.ln(1)
 
     def publish_summary(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Render the title banner and the one-row-per-stage summary table."""
         self._title_page_header()
         self._section_heading('Summary')
 
@@ -82,6 +91,7 @@ class PDFPublisher(Publisher):
         self.pdf.add_page()
 
     def publish_detailed(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Render every field of every stage as its own table."""
         self._section_heading('Detailed Report')
 
         for index, data in enumerate(data_list):
@@ -114,6 +124,7 @@ class PDFPublisher(Publisher):
             self.pdf.ln(6)
 
     def publish(self, data_list: StageList, power_units: str = 'W') -> None:
+        """Build the whole document and write it to ``self.fpath``."""
         self.publish_summary(data_list, power_units)
         self.publish_detailed(data_list, power_units)
         self.pdf.output(self.fpath)

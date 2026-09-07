@@ -96,21 +96,35 @@ Status legend: `[x]` done · `[~]` partly done · `[ ]` not started
 
 ## 7. Validation & robustness
 
-- [ ] Input validation (negative distances, zero frequency, `num_elements=0`,
-  bad `mode` strings, non-overlapping `SubBandTune` bands → negative power).
-- [ ] Warnings for physically dubious budgets (SNR improving through a passive
-  loss, thermal noise added twice, gain applied before the noise floor exists).
-- [ ] Consistent division-by-zero guards inside components.
+- [x] Input validation -- component constructors raise `ValueError` for
+  non-positive distances/frequencies/bandwidths/bit-depths/etc., bad `role`
+  and `mixer.mode` strings, out-of-range elevation/efficiency, and unordered
+  `SubBandTune` band edges (`linkbudget/_validate.py`). Non-overlapping
+  `SubBandTune` bands now clamp the signal to zero instead of going negative.
+- [x] Warnings for physically dubious budgets -- `budget.check()` /
+  `LinkBudgetWarning` from `compute()` flag: no signal / fully attenuated
+  signal, negative stage power, a repeated `ThermalNoise` floor, a negative
+  `total_loss_db` / `conversion_loss_db`, and a path stage off the declared
+  `carrier_frequency` (`linkbudget/checks.py`). `LinkContainer(warn=False)`
+  silences them.
+- [x] Division-by-zero guards -- covered by the input validation above plus a
+  `4.0**effective_bits` underflow guard in `QuantizationNoise`.
+- [ ] "SNR improves through a passive stage" was dropped as a check: with the
+  built-in components it only happens via a negative loss value, which the
+  negative-loss check already catches. Revisit if user-written components
+  become common.
 
 ## 8. Output
 
 - [ ] CSV / JSON / dict / DataFrame export from `compute()`.
+- [x] Markdown report -- `MarkdownPublisher` writes the summary + per-component
+  tables as GitHub-flavoured Markdown (`.md`).
 - [x] Cascade "waterfall" plot of signal & noise power vs stage
   (`WaterfallPublisher`, matplotlib, writes an image). `make examples` runs
-  every example and writes `.pdf` / `.html` / `.png` to
+  every example and writes `.pdf` / `.html` / `.md` / `.png` to
   `examples/example_outputs/`.
-- [x] Allow multiple simultaneous publishers (stdout + PDF + HTML + waterfall
-  in one run) -- see [[section 6]].
+- [x] Allow multiple simultaneous publishers (stdout + PDF + HTML + Markdown +
+  waterfall in one run) -- see [[section 6]].
 - [ ] Budget-vs-budget diff.
 - [ ] Scenario templates (LEO downlink, GEO, terrestrial microwave, P2P Wi-Fi).
 
@@ -126,6 +140,7 @@ Status legend: `[x]` done · `[~]` partly done · `[ ]` not started
 - [x] Docs site -- MkDocs + Material + mkdocstrings, published to GitHub Pages
   from CI (`make docs` / `make docs-serve`, `pip install linkbudget[docs]`).
 - [ ] Worked-example notebooks (deferred).
-- [ ] Fill in class/function docstrings so the API reference is more than
-  signatures (the `missing-*-docstring` pylint checks are currently disabled).
+- [x] Class / function docstrings written for the whole package; the
+  `missing-module-docstring` / `missing-class-docstring` /
+  `missing-function-docstring` pylint checks are re-enabled (pylint 10/10).
 - [ ] Changelog.

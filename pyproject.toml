@@ -66,12 +66,9 @@ py-version = "3.8"
 max-line-length = 100
 
 [tool.pylint."messages control"]
-# Keep whitespace and line-length checks (C0301, C0303, C0304, C0305) enabled.
-# Silence conventions/refactors that don't fit this small, data-model-heavy library.
+# Docstrings, whitespace and line-length checks are all enabled; only these
+# refactor heuristics that don't fit this small, data-model-heavy library are off.
 disable = [
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
     "too-few-public-methods",
     "too-many-instance-attributes",
     "too-many-arguments",

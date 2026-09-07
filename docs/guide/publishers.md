@@ -38,6 +38,13 @@ breakdown. Content is HTML-escaped and the file is UTF-8.
 `PDFPublisher(fpath, title="Link Budget Report")` — the same report as a
 styled, paginated PDF (via `fpdf2`), visually matching the HTML layout.
 
+## `MarkdownPublisher`
+
+`MarkdownPublisher(fpath, title="Link Budget Report")` — the same summary
+table and per-component field breakdown as GitHub-flavoured Markdown (`.md`),
+ready to drop into a README, a wiki or a PR description. Pipes and newlines
+in component names / descriptions are escaped so the tables stay well-formed.
+
 ## `WaterfallPublisher`
 
 `WaterfallPublisher(fpath, title="Link Budget Cascade", figsize=(11, 6), dpi=140)`

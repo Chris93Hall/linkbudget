@@ -72,7 +72,9 @@ for:
 - **`is_margin = True`** — the [`LinkMargin`](guide/figures-of-merit.md#linkmargin)
   stage.
 
-See the [component reference](components.md) for the full list.
+See the [component reference](components.md) for the full list, and
+[Validation & warnings](guide/validation.md) for what the constructors reject
+and what `budget.check()` flags.
 
 ## Publishers
 

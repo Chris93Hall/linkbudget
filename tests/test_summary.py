@@ -154,8 +154,9 @@ class TestSummaryEdgeCases:
 
     def test_rx_antenna_with_no_signal_yields_no_g_over_t(self):
         # no signal source: the receive antenna sees zero signal power in,
-        # so its gain cannot be recovered for G/T
-        budget = lc.LinkContainer(noise_bandwidth=1e6)
+        # so its gain cannot be recovered for G/T (warn=False: the missing
+        # signal source is the point of the test)
+        budget = lc.LinkContainer(noise_bandwidth=1e6, warn=False)
         budget.add_component(lc.Gain("Rx antenna", "", gain=30.0, role="rx"))
         budget.add_component(lc.ThermalNoise("noise", "", bandwidth=1e6))
         summary = budget.summary()
