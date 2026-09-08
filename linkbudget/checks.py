@@ -65,12 +65,14 @@ def _check_no_signal(data_list: StageList, issues: list[str]) -> None:
 
 
 def _check_repeated_noise_floor(data_list: StageList, issues: list[str]) -> None:
-    thermal = [stage["name"] for stage in data_list if "thermal_noise_power" in stage]
-    if len(thermal) > 1:
-        names = ", ".join(repr(name) for name in thermal)
-        issues.append(
-            f"thermal noise floor added {len(thermal)} times ({names}); "
-            "noise is being double-counted")
+    for key, label in (("thermal_noise_power", "thermal noise floor"),
+                       ("antenna_noise_power", "antenna noise temperature")):
+        names = [stage["name"] for stage in data_list if key in stage]
+        if len(names) > 1:
+            listed = ", ".join(repr(name) for name in names)
+            issues.append(
+                f"{label} added {len(names)} times ({listed}); "
+                "noise is being double-counted")
 
 
 def _check_negative_loss(data_list: StageList, issues: list[str]) -> None:

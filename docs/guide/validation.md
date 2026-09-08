@@ -56,7 +56,7 @@ What is flagged:
 |---|---|
 | Final signal power is zero | no `SignalSource`, or the signal is fully attenuated |
 | A stage produced negative signal or noise power | always a bug or bad input |
-| More than one `ThermalNoise` stage | the thermal noise floor is being double-counted |
+| More than one `ThermalNoise` (or more than one `AntennaNoiseTemperature`) stage | that noise floor is being double-counted |
 | A negative `total_loss_db` / `conversion_loss_db` | a "loss" that is really a gain — usually a sign error |
 | A path stage's `frequency` differs from the container's `carrier_frequency` | a mismatched frequency (checks stop at the first `Mixer`, which legitimately moves the carrier) |
 

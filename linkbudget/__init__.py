@@ -2,9 +2,11 @@
 
 from . import convert, fom
 from .antennas import (
+    AntennaNoiseTemperature,
     BeamPointingLoss,
     ParabolicDish,
     PolarizationMismatchLoss,
+    antenna_noise_temp_k,
     dish_gain_dbi,
     dish_half_power_beamwidth_deg,
     gaussian_beam_pointing_loss_db,
@@ -82,10 +84,12 @@ __all__ = [  # noqa: RUF022  -- grouped by role, not alphabetised
     "ParabolicDish",
     "BeamPointingLoss",
     "PolarizationMismatchLoss",
+    "AntennaNoiseTemperature",
     "dish_gain_dbi",
     "dish_half_power_beamwidth_deg",
     "gaussian_beam_pointing_loss_db",
     "polarization_efficiency",
+    "antenna_noise_temp_k",
     # propagation
     "AtmosphericAbsorption",
     "RainAttenuation",

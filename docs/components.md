@@ -11,8 +11,8 @@ signature).
 |---|---|---|
 | `SignalSource` | Inject signal and/or noise power (a transmitter, or a noise source) | `signal_power`, `noise_power` (linear, added to the chain) |
 | `Gain` | Apply a gain/loss to both signal and noise | `gain`, `db=True`, `role=None` (`"tx"`/`"rx"`) |
-| `RFComponent` | Generic gain block with a noise figure (an amplifier) | `gain` (dB), `noise_figure` (dB) |
-| `NoiseFigure` | Degrade noise only, by a noise figure | `noise_figure` (dB) |
+| `RFComponent` | Generic gain block with a noise figure (an amplifier) | `gain` (dB), `noise_figure` (dB), `noise_bandwidth` (Hz, opt-in Friis) |
+| `NoiseFigure` | Add the noise of a noise-figure stage; signal unchanged | `noise_figure` (dB), `noise_bandwidth` (Hz, opt-in Friis) |
 | `ArrayFactor` | Array gain from element count | `num_elements`, `role=None` |
 | `Integrate` | Coherent integration: signal ×`timespan`, noise unchanged | `timespan` |
 
@@ -39,6 +39,7 @@ See [Propagation models](guide/propagation.md) for details and validity ranges.
 | `ParabolicDish` | Dish gain + beamwidth from geometry | `diameter`, `frequency`, `efficiency`, `role=None` |
 | `BeamPointingLoss` | Pointing loss from beamwidth + error | `pointing_error_deg`, `half_power_beamwidth_deg` or `diameter`+`frequency` |
 | `PolarizationMismatchLoss` | Loss from axial ratios + tilt | `axial_ratio_db_tx`, `axial_ratio_db_rx`, `tilt_angle_deg` |
+| `AntennaNoiseTemperature` | Antenna noise floor: sky + ground pickup + ohmic loss | `sky_temp_k`, `ground_coupling`, `radiation_efficiency`, `bandwidth` |
 
 See [Antenna models](guide/antennas.md).
 
@@ -58,17 +59,27 @@ attenuator that reduces signal and noise together, use a negative-dB `Gain`.
 
 | Component | Purpose | Key arguments |
 |---|---|---|
-| `Mixer` | Up/down-conversion, conversion loss, noise figure, image noise | `lo_frequency`, `rf_frequency`, `conversion_loss_db`, `mode`, `noise_figure_db`, `image_reject_db` |
+| `Mixer` | Up/down-conversion, conversion loss, noise figure, image noise | `lo_frequency`, `rf_frequency`, `conversion_loss_db`, `mode`, `noise_figure_db`, `image_reject_db`, `noise_bandwidth` |
 | `SubBandTune` | Filter/retune to a sub-band, reducing signal and noise bandwidth | band-edge frequencies (Hz) |
 | `QuantizationNoise` | Add quantization noise from bit depth + headroom | `total_bits`, `headroom_db` |
-| `AnalogToDigitalConverter` | Buffer gain/NF then quantization noise, in one step | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, `sample_rate` |
-| `DigitalToAnalogConverter` | Quantization noise then output driver gain/NF | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, `sample_rate` |
+| `AnalogToDigitalConverter` | Buffer gain/NF then quantization noise, in one step | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, `sample_rate`, `noise_bandwidth` |
+| `DigitalToAnalogConverter` | Quantization noise then output driver gain/NF | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, `sample_rate`, `noise_bandwidth` |
 
 ## Noise floor and analysis
 
 | Component | Purpose | Key arguments |
 |---|---|---|
 | `ThermalNoise` | Physical thermal noise floor `k·T·B` (watts) | `temperature_k` (default 290), `bandwidth` (Hz) |
+| `AntennaNoiseTemperature` | Antenna noise floor from sky + ground + ohmic loss | `sky_temp_k`, `ground_temp_k`, `ground_coupling`, `radiation_efficiency`, `bandwidth` |
 | `LinkMargin` | Compare achieved link vs a requirement; report closure | one of `required_ebno_db` / `required_esno_db` / `required_cn_db` / `required_snr_db` |
+
+By default the noise-figure stages use a scale-free `N_out = N_in · G · F`, in
+which a stage's noise figure hurts the SNR by the same amount wherever it sits
+in the chain. Pass a `noise_bandwidth` (Hz) to `RFComponent` / `NoiseFigure` /
+`Mixer` to switch to the **Friis added-noise** form
+`N_out = (N_in + (F − 1)·k·T₀·B)·G`, where the excess noise is referred to the
+stage input and a noisy late stage is suppressed by all the preceding gain.
+This is an absolute power (watts), so use it with a `ThermalNoise` or
+`AntennaNoiseTemperature` floor. See [Noise modelling](guide/noise.md).
 
 See [Figures of merit & link margin](guide/figures-of-merit.md).

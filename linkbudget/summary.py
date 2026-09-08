@@ -111,6 +111,24 @@ def _propagation_metrics(summary: BudgetSummary, data_list: StageList,
     summary.total_propagation_loss_db = -convert.linear_to_db(total_gain)
 
 
+def _stage_excess_noise_temp_k(stage: dict, noise_bandwidth: float) -> float | None:
+    """Noise this stage adds, referred to its own input and expressed as a
+    temperature (K) -- or ``None`` if it adds no thermal-type noise.
+
+    Recognises the explicit contributions the noise components report: a
+    `ThermalNoise` floor (``thermal_noise_power``), an antenna noise
+    temperature (``antenna_noise_power``) and the Friis excess noise of an
+    amplifier / mixer (``excess_noise_power``, non-zero only in the Friis
+    model).  Multiplicative-model noise-figure stages and signal-relative
+    terms (quantisation) are not thermal contributions and are skipped.
+    """
+    for key in ("thermal_noise_power", "antenna_noise_power", "excess_noise_power"):
+        value = stage.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0.0:
+            return value / (convert.BOLTZMANN_CONSTANT * noise_bandwidth)
+    return None
+
+
 def _noise_metrics(summary: BudgetSummary, data_list: StageList,
                    components: Sequence[Component],
                    noise_bandwidth: float | None) -> None:
@@ -121,14 +139,23 @@ def _noise_metrics(summary: BudgetSummary, data_list: StageList,
                      None)
     if floor_idx is None:
         return
-    gain_after = 1.0
-    for stage in data_list[floor_idx + 1:]:
-        # noise is non-zero at every stage past the floor, so this is always
-        # a real ratio; the guard is only belt-and-braces against div-by-zero
-        if stage["noise_power_in"] > 0.0:  # pragma: no branch
-            gain_after *= stage["noise_power_out"] / stage["noise_power_in"]
-    final_noise = data_list[-1]["noise_power_out"]
-    t_sys = final_noise / (convert.BOLTZMANN_CONSTANT * noise_bandwidth * gain_after)
+
+    # system noise temperature referred to the floor-plane input: each stage's
+    # own added noise, divided down by the available gain ahead of it (Friis).
+    t_sys = 0.0
+    gain_to_input = 1.0
+    for stage in data_list[floor_idx:]:
+        excess_temp_k = _stage_excess_noise_temp_k(stage, noise_bandwidth)
+        if excess_temp_k is not None:
+            t_sys += excess_temp_k / gain_to_input
+        signal_in = stage["signal_power_in"]
+        if signal_in > 0.0:
+            gain_to_input *= stage["signal_power_out"] / signal_in
+    if t_sys <= 0.0:
+        # only non-thermal noise (e.g. a multiplicative noise-figure model or
+        # quantisation) -- fall back to the floor-plane noise power as a temp
+        t_sys = data_list[floor_idx]["noise_power_out"] / (
+            convert.BOLTZMANN_CONSTANT * noise_bandwidth)
     summary.system_noise_temp_k = t_sys
 
     rx_idx = next((i for i, comp in enumerate(components)

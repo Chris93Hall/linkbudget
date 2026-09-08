@@ -44,8 +44,11 @@ print(budget.summary())
 - **Propagation models.** Free-space and radar path loss plus simplified
   ITU-R models for [gaseous absorption, rain, cloud, scintillation and two-ray
   ground reflection](guide/propagation.md).
-- **Antenna models.** [Parabolic-dish gain, beam pointing loss and
-  polarization mismatch](guide/antennas.md).
+- **Antenna models.** [Parabolic-dish gain, beam pointing loss, polarization
+  mismatch and an antenna noise temperature](guide/antennas.md).
+- **Noise modelling.** [A Friis per-stage noise cascade](guide/noise.md) that
+  weights late-stage noise figures correctly, feeding the system noise
+  temperature and G/T.
 - **Publishers.** Console, PDF, HTML, Markdown and a matplotlib
   [waterfall / cascade plot](guide/publishers.md); run several at once.
 

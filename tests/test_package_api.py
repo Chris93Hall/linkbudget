@@ -31,6 +31,7 @@ EXPECTED_EXPORTS = [
     "ParabolicDish",
     "BeamPointingLoss",
     "PolarizationMismatchLoss",
+    "AntennaNoiseTemperature",
     "AtmosphericAbsorption",
     "RainAttenuation",
     "CloudFogAttenuation",
@@ -56,6 +57,7 @@ COMPONENT_NAMES = [
     "RFComponent", "Integrate", "RadarPathLoss", "RadarPathLossOneWay",
     "AnalogToDigitalConverter", "DigitalToAnalogConverter",
     "ParabolicDish", "BeamPointingLoss", "PolarizationMismatchLoss",
+    "AntennaNoiseTemperature",
     "AtmosphericAbsorption", "RainAttenuation", "CloudFogAttenuation",
     "TroposphericScintillation", "TwoRayGroundReflection", "LinkMargin",
 ]

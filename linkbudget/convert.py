@@ -14,6 +14,10 @@ import numpy as np
 
 BOLTZMANN_CONSTANT: float = 1.380649e-23  # joules per kelvin
 SPEED_OF_LIGHT: float = 2.99792458e8       # meters per second
+#: IEEE standard reference temperature ``T0`` for noise-figure definitions (K).
+#: A noise figure ``F`` is the excess noise a stage adds referred to a source
+#: at this temperature: ``T_excess = (F - 1) * T0``.
+REFERENCE_NOISE_TEMP_K: float = 290.0
 
 
 def linear_to_db(val: float) -> float:

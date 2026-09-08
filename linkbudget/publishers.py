@@ -21,7 +21,8 @@ from ._types import StageList
 # fields whose values are absolute power quantities in the container's
 # power_units, as opposed to ratios, dB values, frequencies, etc.
 POWER_FIELDS = {'signal_power_in', 'signal_power_out', 'noise_power_in', 'noise_power_out',
-                 'quantization_noise', 'thermal_noise_power', 'image_noise_power'}
+                 'quantization_noise', 'thermal_noise_power', 'image_noise_power',
+                 'excess_noise_power', 'antenna_noise_power'}
 
 def label_with_units(key: str, power_units: str) -> str:
     """Turn a stage-dict key into a display label.

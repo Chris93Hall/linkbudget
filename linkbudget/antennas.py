@@ -48,6 +48,35 @@ def gaussian_beam_pointing_loss_db(offset_deg: float,
     return 12.0 * (offset_deg / half_power_beamwidth_deg) ** 2
 
 
+def antenna_noise_temp_k(sky_temp_k: float, ground_temp_k: float = 290.0,
+                         ground_coupling: float = 0.0,
+                         radiation_efficiency: float = 1.0,
+                         physical_temp_k: float = 290.0) -> float:
+    """Antenna noise temperature (K) at the feed port.
+
+    The beam sees a scene that is a fraction ``ground_coupling`` warm ground
+    (``ground_temp_k``) and the rest cold sky (``sky_temp_k`` -- the
+    atmospheric-emission brightness temperature seen along the path, which
+    already includes the ~2.7 K cosmic background)::
+
+        T_scene = (1 - ground_coupling) * sky_temp_k + ground_coupling * ground_temp_k
+
+    Ohmic / feed loss with radiation efficiency ``radiation_efficiency`` (0..1)
+    then attenuates that scene and adds its own physical-temperature noise::
+
+        T_a = radiation_efficiency * T_scene + (1 - radiation_efficiency) * physical_temp_k
+    """
+    _validate.non_negative("sky_temp_k", sky_temp_k)
+    _validate.non_negative("ground_temp_k", ground_temp_k)
+    _validate.in_range("ground_coupling", ground_coupling, 0.0, 1.0)
+    _validate.in_range("radiation_efficiency", radiation_efficiency, 0.0, 1.0, low_open=True)
+    _validate.non_negative("physical_temp_k", physical_temp_k)
+    scene_temp_k = ((1.0 - ground_coupling) * sky_temp_k
+                    + ground_coupling * ground_temp_k)
+    return (radiation_efficiency * scene_temp_k
+            + (1.0 - radiation_efficiency) * physical_temp_k)
+
+
 def polarization_efficiency(axial_ratio_db_1: float, axial_ratio_db_2: float,
                             tilt_angle_deg: float = 0.0) -> float:
     """Polarization matching efficiency (0..1) between two elliptically
@@ -173,3 +202,59 @@ class PolarizationMismatchLoss(Component):
                 "tilt_angle_deg": self.tilt_angle_deg,
                 "polarization_efficiency": efficiency,
                 "polarization_loss_db": loss_db}
+
+
+class AntennaNoiseTemperature(Component):
+    """Antenna noise-temperature floor: injects ``k * T_a * bandwidth`` watts
+    of noise, where ``T_a`` is composed from the sky brightness temperature,
+    ground pickup and the antenna's own ohmic loss (see `antenna_noise_temp_k`).
+
+    This is the receive-side counterpart to a `ThermalNoise` receiver floor:
+    put it right after the receive antenna to establish the noise entering the
+    front end.  ``sky_temp_k`` is the atmospheric-emission brightness
+    temperature along the path (roughly ``T_phys * (1 - 10**(-A_atm_db/10))``
+    plus the 2.7 K cosmic background, so a few K at high elevation in clear
+    air, tens of K through rain).  With ``radiation_efficiency < 1`` the ohmic
+    loss also attenuates the signal, exactly like a matched lossy stage.
+    """
+
+    def __init__(self, name: str = "Antenna noise", description: str = "",
+                 sky_temp_k: float = 10.0, ground_temp_k: float = 290.0,
+                 ground_coupling: float = 0.0, radiation_efficiency: float = 1.0,
+                 physical_temp_k: float = 290.0, bandwidth: float = 1.0) -> None:
+        self.name = name
+        self.description = description
+        self.sky_temp_k = _validate.non_negative("sky_temp_k", sky_temp_k)
+        self.ground_temp_k = _validate.non_negative("ground_temp_k", ground_temp_k)
+        self.ground_coupling = _validate.in_range(
+            "ground_coupling", ground_coupling, 0.0, 1.0)
+        self.radiation_efficiency = _validate.in_range(
+            "radiation_efficiency", radiation_efficiency, 0.0, 1.0, low_open=True)
+        self.physical_temp_k = _validate.non_negative("physical_temp_k", physical_temp_k)
+        self.bandwidth = _validate.positive("bandwidth", bandwidth)
+
+    def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
+        """Attenuate by the ohmic loss and add ``k * T_a * bandwidth``."""
+        antenna_temp_k = antenna_noise_temp_k(
+            self.sky_temp_k, self.ground_temp_k, self.ground_coupling,
+            self.radiation_efficiency, self.physical_temp_k)
+        antenna_noise_power = (convert.BOLTZMANN_CONSTANT * antenna_temp_k
+                               * self.bandwidth)
+        efficiency = self.radiation_efficiency
+        scene_temp_k = ((1.0 - self.ground_coupling) * self.sky_temp_k
+                        + self.ground_coupling * self.ground_temp_k)
+        return {"name": self.name,
+                "description": self.description,
+                "signal_power_in": signal_power,
+                "noise_power_in": noise_power,
+                "signal_power_out": signal_power * efficiency,
+                "noise_power_out": noise_power * efficiency + antenna_noise_power,
+                "sky_temp_k": self.sky_temp_k,
+                "ground_temp_k": self.ground_temp_k,
+                "ground_coupling": self.ground_coupling,
+                "radiation_efficiency": efficiency,
+                "physical_temp_k": self.physical_temp_k,
+                "bandwidth": self.bandwidth,
+                "scene_noise_temp_k": scene_temp_k,
+                "antenna_noise_temp_k": antenna_temp_k,
+                "antenna_noise_power": antenna_noise_power}

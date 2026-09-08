@@ -68,13 +68,23 @@ Status legend: `[x]` done · `[~]` partly done · `[ ]` not started
 - [ ] Full off-boresight pattern objects (Gaussian / sinc² / measured pattern).
 - [ ] Array scan loss and taper efficiency.
 
-## 5. Noise modelling  *(known simplification)*
+## 5. Noise modelling
 
-- [~] System noise temperature is now reported, but the per-stage cascade
-  still uses `N_out = N_in · G · F` rather than the Friis added-noise form
-  `N_out = N_in · G + (F−1)·k·T0·B·G`. Add proper noise-temperature tracking
-  so late-stage noise figure correctly matters less.
-- [ ] Antenna noise temperature model (T_sky + T_ground + T_rx composition).
+- [x] Friis per-stage noise cascade. `RFComponent` / `NoiseFigure` / `Mixer`
+  (and the ADC/DAC input stages) take an opt-in `noise_bandwidth` (Hz) that
+  switches them from the scale-free `N_out = N_in · G · F` to the Friis
+  added-noise form `N_out = (N_in + (F−1)·k·T0·B)·G`, referring the excess to
+  the stage input so late-stage noise figure correctly matters less.
+  `reference_temp_k` (default `convert.REFERENCE_NOISE_TEMP_K` = 290 K) is
+  configurable per stage. `summary().system_noise_temp_k` now sums the
+  per-stage contributions (Friis, referred to the floor plane) instead of just
+  reporting the floor temperature. `linkbudget.fom` gained
+  `noise_figure_to_temp_k` / `noise_temp_to_figure_db` /
+  `friis_total_noise_temp_k` / `friis_total_noise_figure_db`.
+- [x] Antenna noise temperature model. `antennas.AntennaNoiseTemperature`
+  injects `k·T_a·B` from a `T_sky` / `T_ground` / ohmic-loss composition;
+  `antennas.antenna_noise_temp_k` is the scalar helper. Receiver temperature
+  stays a separate `ThermalNoise` / noise-figure stage.
 - [ ] Phase-noise / reciprocal-mixing contribution.
 - [ ] ADC noise from aperture jitter and SFDR/SNDR, not just quantisation.
 
@@ -85,8 +95,8 @@ Status legend: `[x]` done · `[~]` partly done · `[ ]` not started
 - [ ] Parameter sweeps (margin vs range / elevation / frequency / data rate).
 - [ ] Tolerance / Monte-Carlo analysis (per-parameter 3σ, worst-case vs RSS).
 - [x] Allow multiple simultaneous publishers (`add_publisher`; `publish()` runs
-  all of them). `.publisher` / `.publishers` are read/write accessors for
-  replacing or clearing the list.
+  all of them, or falls back to a `StdOutPublisher` when none are installed).
+  `.publishers` is the list; assign it to replace or clear.
 - [ ] Editable component list (lookup / insert / remove / replace by name), `__repr__`.
 - [ ] Bidirectional links (uplink + downlink + transponder, end-to-end C/N).
 - [ ] Shared carrier frequency flowing through frequency-dependent components

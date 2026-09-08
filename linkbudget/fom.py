@@ -10,6 +10,7 @@ but are handy on their own.
 from __future__ import annotations
 
 import math
+from typing import Sequence
 
 from . import convert
 
@@ -23,6 +24,46 @@ def eirp_dbw(tx_power_dbw: float, tx_antenna_gain_dbi: float,
 def g_over_t_db(rx_antenna_gain_dbi: float, system_noise_temp_k: float) -> float:
     """Receiver figure of merit G/T (dB/K)."""
     return rx_antenna_gain_dbi - convert.linear_to_db(system_noise_temp_k)
+
+
+def noise_figure_to_temp_k(noise_figure_db: float,
+                           reference_temp_k: float = convert.REFERENCE_NOISE_TEMP_K) -> float:
+    """Equivalent noise temperature (K) of a stage with the given noise figure:
+    ``T_e = (F - 1) * T0``."""
+    return (convert.db_to_linear(noise_figure_db) - 1.0) * reference_temp_k
+
+
+def noise_temp_to_figure_db(noise_temp_k: float,
+                            reference_temp_k: float = convert.REFERENCE_NOISE_TEMP_K) -> float:
+    """Noise figure (dB) equivalent to an excess noise temperature ``T_e``:
+    ``F = 1 + T_e / T0``."""
+    return convert.linear_to_db(1.0 + noise_temp_k / reference_temp_k)
+
+
+def friis_total_noise_temp_k(stage_noise_temps_k: Sequence[float],
+                             stage_gains_db: Sequence[float]) -> float:
+    """Total noise temperature (K) of a cascade, referred to its input, from
+    Friis: ``T = T1 + T2/G1 + T3/(G1 G2) + ...``.
+
+    ``stage_gains_db[i]`` is the available power gain (dB) of stage ``i``; the
+    last stage's gain is not used.  Both sequences must be the same length.
+    """
+    if len(stage_noise_temps_k) != len(stage_gains_db):
+        raise ValueError("stage_noise_temps_k and stage_gains_db must match in length")
+    total = 0.0
+    gain_before = 1.0
+    for temp_k, gain_db in zip(stage_noise_temps_k, stage_gains_db):
+        total += temp_k / gain_before
+        gain_before *= convert.db_to_linear(gain_db)
+    return total
+
+
+def friis_total_noise_figure_db(stage_noise_figures_db: Sequence[float],
+                                stage_gains_db: Sequence[float]) -> float:
+    """Total noise figure (dB) of a cascade from Friis:
+    ``F = F1 + (F2-1)/G1 + (F3-1)/(G1 G2) + ...``."""
+    temps = [noise_figure_to_temp_k(nf) for nf in stage_noise_figures_db]
+    return noise_temp_to_figure_db(friis_total_noise_temp_k(temps, stage_gains_db))
 
 
 def free_space_path_loss_db(distance_m: float, frequency_hz: float) -> float:

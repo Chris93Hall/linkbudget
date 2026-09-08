@@ -29,7 +29,7 @@ python -m build
 ```python
 import linkbudget
 
-budget = linkbudget.LinkContainer()  # publishes to stdout by default
+budget = linkbudget.LinkContainer()  # publish() prints to stdout unless you add a publisher
 
 budget.add_component(linkbudget.SignalSource(
     'Signal source',
@@ -75,13 +75,13 @@ The container that holds the chain of components and drives the computation.
 ```python
 budget = linkbudget.LinkContainer(power_units='W')  # 'W' (watts) is the default
 budget.add_component(...)                            # add as many as needed, in order
-budget.add_publisher(...)                            # optional; stdout is on by default
+budget.add_publisher(...)                            # optional; publish() falls back to stdout
 budget.publish()                                     # computes and publishes the result
 ```
 
 - `power_units` — a display label for whatever **linear** units your `signal_power`/`noise_power` values are actually in (e.g. `'W'`, `'mW'`). Every component adds/multiplies these values directly (never in log scale), so the label must name a linear unit, not a dB-referenced one like `'dBm'`/`'dBW'` — those would be inconsistent with the actual arithmetic. It's purely cosmetic: it's passed through to the installed publisher and shown in power-related table headers and detailed-report field labels, but doesn't rescale any numbers — pick units consistently across every component you add (e.g. `ThermalNoise`'s `k·T·B` is always in watts, so if you use it, keep everything else in watts too).
 - `add_component(component)` — appends a component to the chain.
-- `add_publisher(publisher)` — adds another output. A new container already has a `StdOutPublisher`; assign `.publisher` (or `.publishers`) to drop or replace it.
+- `add_publisher(publisher)` — adds another output. A new container has none installed, so `publish()` falls back to a `StdOutPublisher`; adding one (or assigning `.publishers`) replaces that fallback.
 - `compute()` — runs signal/noise power through each component in order, computing signal gain, noise gain, and SNR at every stage. Called automatically by `publish()`.
 - `publish()` — calls `compute()` then hands the resulting data, along with `power_units`, to every installed publisher.
 
@@ -97,21 +97,22 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `FreeSpacePathLoss(name, description, distance, frequency)` | Applies free-space path loss | `distance` (meters), `frequency` (Hz) |
 | `Gain(name, description, gain, db=True)` | Applies a gain (or loss, if negative) to both signal and noise | `gain`, `db` (`True` for dB, `False` for linear) |
 | `QuantizationNoise(name, description, total_bits, headroom_db)` | Adds quantization noise based on bit depth and headroom | `total_bits`, `headroom_db` |
-| `AnalogToDigitalConverter(name, description, gain_db, noise_figure_db, total_bits, headroom_db, sample_rate)` | An ADC: input buffer gain/noise figure, then quantization noise, in one step. Equivalent to `RFComponent` followed by `QuantizationNoise` | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, optional `sample_rate` (Hz, informational) |
-| `DigitalToAnalogConverter(name, description, total_bits, headroom_db, gain_db, noise_figure_db, sample_rate)` | A DAC: quantization noise, then output driver gain/noise figure, in one step (reverse order of `AnalogToDigitalConverter`). Equivalent to `QuantizationNoise` followed by `RFComponent` | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, optional `sample_rate` (Hz, informational) |
+| `AnalogToDigitalConverter(name, description, gain_db, noise_figure_db, total_bits, headroom_db, sample_rate, noise_bandwidth)` | An ADC: input buffer gain/noise figure, then quantization noise, in one step. Equivalent to `RFComponent` followed by `QuantizationNoise` | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, optional `sample_rate` (Hz, informational), `noise_bandwidth` (Hz, forwarded to the buffer stage) |
+| `DigitalToAnalogConverter(name, description, total_bits, headroom_db, gain_db, noise_figure_db, sample_rate, noise_bandwidth)` | A DAC: quantization noise, then output driver gain/noise figure, in one step (reverse order of `AnalogToDigitalConverter`). Equivalent to `QuantizationNoise` followed by `RFComponent` | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, optional `sample_rate` (Hz, informational), `noise_bandwidth` (Hz, forwarded to the driver stage) |
 | `SubBandTune(name, description, input_lower_freq, input_upper_freq, signal_lower_freq, signal_upper_freq, output_lower_freq, output_upper_freq)` | Models filtering/retuning to a sub-band, reducing signal and noise bandwidth accordingly | frequency band edges (Hz) |
 | `RadarCrossSection(name, description, rcs_db)` | Applies a radar cross-section scaling factor as a plain dB power multiplier | `rcs_db` |
 | `RadarPathLoss(name, description, distance / tx_distance+rx_distance, frequency, rcs_db)` | Correct two-way radar path loss in one step: `λ²·σ / ((4π)³·R_tx²·R_rx²)` | `distance` or `tx_distance`+`rx_distance`, `frequency` (Hz), `rcs_db` (dB relative to 1 m²) |
 | `RadarPathLossOneWay(name, description, distance, frequency)` | One leg of a two-way radar path, calibrated so `RadarPathLossOneWay -> RadarCrossSection -> RadarPathLossOneWay` reproduces `RadarPathLoss` exactly | `distance` (meters), `frequency` (Hz) |
 | `ArrayFactor(name, description, num_elements)` | Applies antenna array gain from element count | `num_elements` |
-| `Mixer(name, description, lo_frequency, rf_frequency, conversion_loss_db, noise_figure_db, mode, image_reject_db)` | Frequency-converts the signal (up/down-conversion against an LO), applying conversion loss/gain and noise figure | `lo_frequency`/`rf_frequency` (Hz), `conversion_loss_db`, `mode` (`'downconvert'` or `'upconvert'`), optional `noise_figure_db` and `image_reject_db` |
+| `Mixer(name, description, lo_frequency, rf_frequency, conversion_loss_db, noise_figure_db, mode, image_reject_db, noise_bandwidth)` | Frequency-converts the signal (up/down-conversion against an LO), applying conversion loss/gain and noise figure | `lo_frequency`/`rf_frequency` (Hz), `conversion_loss_db`, `mode` (`'downconvert'` or `'upconvert'`), optional `noise_figure_db`, `image_reject_db`, `noise_bandwidth` (Hz, opt-in Friis noise) |
 | `ThermalNoise(name, description, temperature_k, bandwidth)` | Adds a physically-computed thermal noise floor (`k * T * B`) to the noise power | `temperature_k` (Kelvin, default 290), `bandwidth` (Hz) |
+| `AntennaNoiseTemperature(name, description, sky_temp_k, ground_temp_k, ground_coupling, radiation_efficiency, physical_temp_k, bandwidth)` | Antenna-side noise floor: `k * T_a * B` from sky brightness, ground pickup and ohmic loss | `sky_temp_k`, `ground_coupling` (0..1), `radiation_efficiency` (0..1), `bandwidth` (Hz) |
 | `ImplementationLoss(name, description, cable_loss_db, pointing_loss_db, polarization_loss_db, other_loss_db)` | Degrades signal only (noise unaffected), modeling aggregate implementation margin loss | loss terms in dB, summed into `total_loss_db` |
 | `CableLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single cable loss term | `loss_db` |
 | `PointingLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single pointing loss term | `loss_db` |
 | `PolarizationLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single polarization loss term | `loss_db` |
-| `NoiseFigure(name, description, noise_figure)` | Degrades noise power (no gain applied) by a noise figure, e.g. a lossless/unity-gain noisy stage | `noise_figure` (dB) |
-| `RFComponent(name, description, gain, noise_figure)` | A generic gain block with a noise figure (e.g. an amplifier) — signal scales by `gain`, SNR degrades by `noise_figure` | `gain` (dB), `noise_figure` (dB) |
+| `NoiseFigure(name, description, noise_figure, noise_bandwidth)` | Adds the noise of a noise-figure stage; signal unchanged | `noise_figure` (dB), optional `noise_bandwidth` (Hz, opt-in Friis noise) |
+| `RFComponent(name, description, gain, noise_figure, noise_bandwidth)` | A generic gain block with a noise figure (e.g. an amplifier) — signal scales by `gain` | `gain` (dB), `noise_figure` (dB), optional `noise_bandwidth` (Hz, opt-in Friis noise) |
 | `Integrate(name, description, timespan)` | Coherent integration (e.g. pulse integration): signal power scales by `timespan` (the processing gain), noise is unaffected | `timespan` |
 
 `CableLoss`, `PointingLoss`, and `PolarizationLoss` are thin subclasses of `ImplementationLoss` — each just sets one of its loss terms, so you can add them individually to a chain instead of bundling all loss sources into a single `ImplementationLoss` component. They share its signal-only degradation behavior.
@@ -120,7 +121,7 @@ Every component is constructed with a `name` and `description` (used for reporti
 
 ### Publishers
 
-Publishers control how the computed link budget is reported. Every built-in publisher labels power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)"). Add one or more with `add_publisher()` and `publish()` runs them all (a new container already publishes to stdout). See the [documentation](https://chris93hall.github.io/linkbudget/guide/publishers/) for the full list.
+Publishers control how the computed link budget is reported. Every built-in publisher labels power-valued columns/fields with the container's `power_units` (e.g. "Signal Power Out (W)"). Add one or more with `add_publisher()` and `publish()` runs them all (with none installed, `publish()` falls back to stdout). See the [documentation](https://chris93hall.github.io/linkbudget/guide/publishers/) for the full list.
 
 - **`StdOutPublisher`** — prints a summary table and a detailed per-stage report to the console. This is the default publisher if none is installed.
 - **`PDFPublisher(fpath, title='Link Budget Report')`** — writes the same summary + detailed report to a styled PDF file at `fpath` (requires the `fpdf2` package), visually matching `HTMLPublisher`'s layout and colors (striped tables, a dark header row, a title banner), with automatic multi-page pagination.
@@ -135,9 +136,10 @@ budget.add_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
 budget.add_publisher(linkbudget.HTMLPublisher('example_link_budget.html'))
 budget.publish()   # writes the PDF and the HTML (and still prints to stdout)
 
-# to suppress the default stdout output, replace the publisher list instead:
-budget.publisher = linkbudget.PDFPublisher('example_link_budget.pdf')
-budget.publish()
+# the stdout fallback only kicks in when no publisher is installed, so adding
+# any publisher of your own suppresses it:
+budget.add_publisher(linkbudget.PDFPublisher('example_link_budget.pdf'))
+budget.publish()   # writes the PDF only
 ```
 
 You can write your own publisher by subclassing `linkbudget.publishers.Publisher` and implementing `publish(data_list, power_units='W')`, where `data_list` is a list of per-component dicts (each containing at least `name`, `description`, `signal_power_in/out`, `noise_power_in/out`, `signal_gain`, `noise_gain`, and `snr`, plus any component-specific fields) and `power_units` is the container's display label. `linkbudget.publishers.label_with_units(key, power_units)` is available if you want the same "append units to known power fields" behavior the built-in publishers use.
@@ -154,8 +156,9 @@ You can write your own publisher by subclassing `linkbudget.publishers.Publisher
 - Power values are unitless/linear unless a component specifically documents dB (e.g. `Gain(db=True)`, `rcs_db`, `headroom_db`).
 - SNR and gains are reported in dB in the summary output (converted internally via `convert.linear_to_db`).
 - Divide-by-zero cases (e.g. zero noise power) are handled by treating the ratio as infinite (`np.inf`).
-- `ThermalNoise` computes an absolute noise power in watts (`k * T * B`, using Boltzmann's constant). For it to be physically meaningful alongside other components, signal/noise power values throughout the chain should be in watts.
+- `ThermalNoise` computes an absolute noise power in watts (`k * T * B`, using Boltzmann's constant). For it to be physically meaningful alongside other components, signal/noise power values throughout the chain should be in watts. `AntennaNoiseTemperature` is the antenna-side counterpart — `k * T_a * B` from a sky/ground/ohmic-loss composition.
+- **Noise cascade.** `RFComponent`, `NoiseFigure` and `Mixer` default to a scale-free `N_out = N_in · G · F`, in which a stage's noise figure hurts the SNR wherever it sits in the chain. Pass a `noise_bandwidth` (Hz) to switch that stage to the Friis added-noise form `N_out = (N_in + (F − 1)·k·T₀·B)·G`, which refers the excess noise to the stage input so a noisy late stage is suppressed by the preceding gain. It is an absolute power in watts — pair it with a `ThermalNoise`/`AntennaNoiseTemperature` floor. `summary().system_noise_temp_k` then becomes the Friis sum of the stage contributions. `T₀` is `convert.REFERENCE_NOISE_TEMP_K` (290 K); override per stage with `reference_temp_k`. See the [noise-modelling guide](https://chris93hall.github.io/linkbudget/guide/noise/).
 - `ImplementationLoss` only attenuates the signal (noise is left untouched), matching the conventional link-budget usage of "implementation loss" as an SNR/margin penalty rather than a physical RF attenuator. To model a physical attenuator that reduces signal and noise together, use a negative-dB `Gain` instead.
-- `Mixer` attenuates/amplifies signal by `conversion_loss_db` and degrades SNR by exactly `noise_figure_db` (which defaults to `conversion_loss_db`, the standard rule of thumb for a passive mixer). If `rf_frequency` is supplied, the resulting `if_frequency` is reported (`rf ± lo` depending on `mode`). If `image_reject_db` is supplied, extra noise folded in from the unrejected image band is added on top of the noise figure; omit it (default `None`) to assume an ideal, fully image-rejected mixer.
+- `Mixer` attenuates/amplifies signal by `conversion_loss_db` and, in the default noise model, degrades SNR by exactly `noise_figure_db` (which defaults to `conversion_loss_db`, the standard rule of thumb for a passive mixer). If `rf_frequency` is supplied, the resulting `if_frequency` is reported (`rf ± lo` depending on `mode`). If `image_reject_db` is supplied, extra noise folded in from the unrejected image band is added on top of the noise figure; omit it (default `None`) to assume an ideal, fully image-rejected mixer.
 - For a two-way (reflective) radar path, use `RadarPathLoss` rather than chaining `FreeSpacePathLoss` twice around `RadarCrossSection`. `FreeSpacePathLoss` bakes a wavelength-dependent receive-aperture term (`λ²/4π`) into its formula, which is correct for one hop between two antennas but not for a hop into a target (which has no antenna aperture — it just scatters based on RCS in m²). Chaining it twice imposes that aperture term a second time where it doesn't belong, overstating two-way path loss by `λ²/(4π)` (~41 dB at X-band) versus the standard radar range equation. `RadarPathLoss` applies the wavelength term exactly once, matching `Pr/Pt = λ²σ/((4π)³R_tx²R_rx²)`.
 - `RadarPathLossOneWay` is deliberately **not** the same formula as `FreeSpacePathLoss`, even though both model "a one-way hop." It implements half of `RadarPathLoss`'s wavelength term per leg (`λ/((4π)^1.5·distance²)`) specifically so that `RadarPathLossOneWay(R1) -> RadarCrossSection(rcs_db) -> RadarPathLossOneWay(R2)` composes into the exact same result as calling `RadarPathLoss(tx_distance=R1, rx_distance=R2, rcs_db=rcs_db)` in one step. Don't use `RadarPathLossOneWay` for a genuine one-way antenna-to-antenna link with no target — use `FreeSpacePathLoss` for that.

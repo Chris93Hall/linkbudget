@@ -34,16 +34,19 @@ data = summary.as_dict()          # plain dict, stages included
 | `spectral_efficiency_bps_per_hz` | `noise_bandwidth` + `data_rate` | `data_rate / noise_bandwidth` |
 | `eirp_dbw` | a propagation stage | signal power entering the first one |
 | `total_propagation_loss_db` | a propagation stage | product of every propagation stage's loss |
-| `system_noise_temp_k` | `noise_bandwidth` + a noise-floor stage | noise referred to the floor plane |
+| `system_noise_temp_k` | `noise_bandwidth` + a noise-floor stage | Friis sum of every stage's noise, referred to the floor plane |
 | `g_over_t_db` | the above + a `role="rx"` antenna | receiver figure of merit |
 | `margin_db`, `closes` | a `LinkMargin` stage | see below |
 
-!!! note "System noise temperature is a simplification"
-    Each stage currently propagates noise as `N_out = N_in · G · F` rather
-    than the Friis added-noise form. `system_noise_temp_k` is referred back to
-    the noise-floor plane and is exact when that floor is at the reference
-    temperature, but a full cascade would weight late-stage noise figures
-    less. This is tracked in `todo.md`.
+!!! note "System noise temperature and the noise model"
+    `system_noise_temp_k` sums each stage's own added noise, referred to the
+    noise-floor plane and divided down by the gain ahead of it. A stage only
+    contributes if it reports a thermal contribution: a `ThermalNoise` floor,
+    an `AntennaNoiseTemperature`, or a noise-figure stage running the
+    [Friis model](noise.md) (`noise_bandwidth` set). Noise-figure stages left
+    on the default multiplicative model, and quantisation noise, don't add a
+    temperature — with only those present the value falls back to the
+    floor-plane noise power expressed as a temperature.
 
 ## `LinkMargin`
 

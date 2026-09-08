@@ -1,7 +1,7 @@
 # Publishers
 
-A publisher turns the computed `data_list` into output. `StdOutPublisher` is
-installed by default.
+A publisher turns the computed `data_list` into output. With none installed,
+`publish()` falls back to a `StdOutPublisher`.
 
 ## Installing publishers
 
@@ -10,20 +10,22 @@ budget.add_publisher(pub)       # append; publish() runs every installed one
 budget.publish()
 ```
 
-A new container starts with a `StdOutPublisher`. To drop or replace it,
-assign `budget.publisher` (the first publisher) or `budget.publishers`
-(the whole list):
+A new container has no publisher installed. Add one (or assign the whole
+`budget.publishers` list) — any installed publisher replaces the stdout
+fallback:
 
 ```python
-budget.publisher = linkbudget.PDFPublisher("report.pdf")   # replace the list
-budget.publishers = []                                     # no output at all
+budget.publishers = [linkbudget.PDFPublisher("report.pdf")]   # replace the list
+budget.publish()   # writes the PDF, no stdout
 ```
+
+To skip output entirely, call `budget.compute()` instead of `budget.publish()`.
 
 ```python
 budget.add_publisher(linkbudget.PDFPublisher("report.pdf", title="Downlink"))
 budget.add_publisher(linkbudget.HTMLPublisher("report.html", title="Downlink"))
 budget.add_publisher(linkbudget.WaterfallPublisher("cascade.png"))
-budget.publish()   # one compute(), four outputs (stdout + the three files)
+budget.publish()   # one compute(), three file outputs
 ```
 
 ## `StdOutPublisher`

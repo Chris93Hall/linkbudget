@@ -55,6 +55,31 @@ linkbudget.PolarizationMismatchLoss(
 Matched circular gives no loss; circular against linear gives 3 dB; crossed
 linears give a null. Attenuates the signal only.
 
+## `AntennaNoiseTemperature`
+
+The antenna-side noise floor: injects `k·T_a·B` watts, where the antenna
+noise temperature `T_a` is composed from the sky brightness temperature, warm
+ground picked up through the sidelobes/spillover, and the antenna's own ohmic
+loss. It is the receive-side counterpart to a `ThermalNoise` receiver floor —
+put it right after the receive antenna.
+
+```python
+linkbudget.AntennaNoiseTemperature(
+    "Antenna noise", "clear-sky Ku-band, 30 deg elevation",
+    sky_temp_k=12.0,          # atmospheric emission along the path (incl. ~2.7 K CMB)
+    ground_temp_k=290.0,
+    ground_coupling=0.05,     # fraction of the pattern seeing warm ground
+    radiation_efficiency=0.98,  # ohmic efficiency; < 1 also attenuates the signal
+    physical_temp_k=290.0,
+    bandwidth=20e6)
+```
+
+`T_a = η·[(1 − c)·T_sky + c·T_ground] + (1 − η)·T_phys` with `c` the ground
+coupling and `η` the radiation efficiency. The stage dict adds
+`scene_noise_temp_k`, `antenna_noise_temp_k` and `antenna_noise_power`, and
+`summary()` folds `antenna_noise_temp_k` into the
+[system noise temperature](noise.md).
+
 ## Scalar helpers
 
 ```python
@@ -64,4 +89,5 @@ antennas.dish_gain_dbi(1.2, 11.7e9, efficiency=0.65)              # dBi
 antennas.dish_half_power_beamwidth_deg(1.2, 11.7e9)               # degrees
 antennas.gaussian_beam_pointing_loss_db(0.3, 1.6)                 # dB
 antennas.polarization_efficiency(0.8, 1.0, tilt_angle_deg=15.0)   # 0..1
+antennas.antenna_noise_temp_k(12.0, ground_coupling=0.05)         # K
 ```

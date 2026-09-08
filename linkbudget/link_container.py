@@ -22,6 +22,33 @@ from .checks import LinkBudgetWarning, check_budget
 from .summary import BudgetSummary, summarize
 
 
+def _noisy_stage_output(noise_power_in: float, gain_linear: float, noise_factor: float,
+                        noise_bandwidth: float | None,
+                        reference_temp_k: float) -> tuple[float, float, float]:
+    """Noise transfer for a stage of available gain ``gain_linear`` and noise
+    factor ``noise_factor`` (``F``).
+
+    Returns ``(noise_power_out, excess_noise_temp_k, excess_noise_power)`` where
+    ``excess_noise_temp_k = (F - 1) * T0`` and ``excess_noise_power`` is that
+    excess referred to the stage *input* (``0.0`` in the scale-free model).
+
+    * With ``noise_bandwidth`` (Hz) set, uses the Friis added-noise form
+      ``N_out = (N_in + (F - 1) k T0 B) * G``.  The excess is injected at the
+      input, so a noisy late stage is suppressed by all the preceding gain --
+      the physically correct cascade.
+    * Without it, falls back to the scale-free ``N_out = N_in * G * F``, in
+      which every stage degrades the SNR by its full noise figure regardless
+      of where it sits in the chain.
+    """
+    excess_noise_temp_k = (noise_factor - 1.0) * reference_temp_k
+    if noise_bandwidth is None:
+        return noise_power_in * gain_linear * noise_factor, excess_noise_temp_k, 0.0
+    excess_noise_power = (excess_noise_temp_k
+                          * convert.BOLTZMANN_CONSTANT * noise_bandwidth)
+    noise_power_out = (noise_power_in + excess_noise_power) * gain_linear
+    return noise_power_out, excess_noise_temp_k, excess_noise_power
+
+
 class LinkContainer:
     """Holds the ordered chain of components and drives the computation.
 
@@ -44,7 +71,7 @@ class LinkContainer:
                  symbol_rate: float | None = None, warn: bool = True) -> None:
         self.components_list: list[Component] = []
         self.data_list: StageList = []
-        self.publishers: list[publishers.Publisher] = [publishers.StdOutPublisher()]
+        self.publishers: list[publishers.Publisher] = []
         self.power_units = power_units
         # optional context used by summary() to derive figures of merit
         self.carrier_frequency = _validate.optional_positive(
@@ -55,27 +82,23 @@ class LinkContainer:
         # emit LinkBudgetWarning from compute() when the budget looks dubious
         self.warn = warn
 
-    @property
-    def publisher(self) -> publishers.Publisher | None:
-        """The first installed publisher; assign to replace the whole list."""
-        return self.publishers[0] if self.publishers else None
-
-    @publisher.setter
-    def publisher(self, value: publishers.Publisher | None) -> None:
-        self.publishers = [value] if value is not None else []
-
     def add_publisher(self, publisher: publishers.Publisher) -> None:
         """Add another publisher; ``publish()`` runs every installed one.
 
-        A new container starts with a `StdOutPublisher`; assign
-        ``publisher`` / ``publishers`` to drop or replace it.
+        A new container has none installed, so ``publish()`` falls back to a
+        `StdOutPublisher`; adding one here replaces that fallback.
         """
         self.publishers.append(publisher)
 
     def publish(self) -> None:
-        """Compute the budget and hand it to every installed publisher."""
+        """Compute the budget and hand it to every installed publisher.
+
+        With no publisher installed, falls back to a single `StdOutPublisher`.
+        To skip output entirely, call `compute` instead.
+        """
         self.compute()
-        for publisher in self.publishers:
+        installed = self.publishers or [publishers.StdOutPublisher()]
+        for publisher in installed:
             publisher.publish(self.data_list, power_units=self.power_units)
 
     def summary(self) -> BudgetSummary:
@@ -313,12 +336,14 @@ class AnalogToDigitalConverter(Component):
 
     Internally composes `RFComponent` with `QuantizationNoise`,
     so it behaves exactly like those two back to back.  ``sample_rate`` (Hz)
-    is informational only.
+    is informational only.  ``noise_bandwidth`` (Hz) is forwarded to the input
+    stage to select the Friis added-noise model (see `RFComponent`).
     """
 
     def __init__(self, name: str = 'ADC', description: str = '', gain_db: float = 0.0,
                  noise_figure_db: float = 0.0, total_bits: float = 12.0,
-                 headroom_db: float = 0.0, sample_rate: float | None = None) -> None:
+                 headroom_db: float = 0.0, sample_rate: float | None = None,
+                 noise_bandwidth: float | None = None) -> None:
         self.name = name
         self.description = description
         self.gain_db = gain_db
@@ -326,7 +351,9 @@ class AnalogToDigitalConverter(Component):
         self.total_bits = total_bits
         self.headroom_db = headroom_db
         self.sample_rate = _validate.optional_positive("sample_rate", sample_rate)
-        self._input_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db)
+        self.noise_bandwidth = _validate.optional_positive("noise_bandwidth", noise_bandwidth)
+        self._input_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db,
+                                        noise_bandwidth=noise_bandwidth)
         self._quantizer = QuantizationNoise(total_bits=total_bits, headroom_db=headroom_db)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
@@ -357,12 +384,15 @@ class DigitalToAnalogConverter(Component):
     `AnalogToDigitalConverter`.
 
     Internally composes `QuantizationNoise` with `RFComponent`.
-    ``sample_rate`` (Hz) is informational only.
+    ``sample_rate`` (Hz) is informational only.  ``noise_bandwidth`` (Hz) is
+    forwarded to the output stage to select the Friis added-noise model (see
+    `RFComponent`).
     """
 
     def __init__(self, name: str = 'DAC', description: str = '', total_bits: float = 12.0,
                  headroom_db: float = 0.0, gain_db: float = 0.0,
-                 noise_figure_db: float = 0.0, sample_rate: float | None = None) -> None:
+                 noise_figure_db: float = 0.0, sample_rate: float | None = None,
+                 noise_bandwidth: float | None = None) -> None:
         self.name = name
         self.description = description
         self.total_bits = total_bits
@@ -370,8 +400,10 @@ class DigitalToAnalogConverter(Component):
         self.gain_db = gain_db
         self.noise_figure_db = noise_figure_db
         self.sample_rate = _validate.optional_positive("sample_rate", sample_rate)
+        self.noise_bandwidth = _validate.optional_positive("noise_bandwidth", noise_bandwidth)
         self._quantizer = QuantizationNoise(total_bits=total_bits, headroom_db=headroom_db)
-        self._output_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db)
+        self._output_stage = RFComponent(gain=gain_db, noise_figure=noise_figure_db,
+                                         noise_bandwidth=noise_bandwidth)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Apply the quantization noise, then the output driver stage."""
@@ -548,56 +580,89 @@ class PolarizationLoss(ImplementationLoss):
         super().__init__(name=name, description=description, polarization_loss_db=loss_db)
 
 class NoiseFigure(Component):
-    """A lossless / unity-gain noisy stage: degrades the noise power by
-    ``noise_figure`` (dB) and leaves the signal unchanged."""
+    """A lossless / unity-gain noisy stage: adds the noise of a stage with
+    ``noise_figure`` (dB) and leaves the signal unchanged.
+
+    Pass ``noise_bandwidth`` (Hz) to use the Friis added-noise form
+    ``N_out = N_in + (F - 1) k T0 B`` -- an absolute noise power, so it only
+    makes sense alongside a `ThermalNoise` floor in watts.  Without it, the
+    scale-free ``N_out = N_in * F`` is used.
+    """
 
     def __init__(self, name: str = 'Noise figure', description: str = '',
-                 noise_figure: float = 1.0) -> None:
+                 noise_figure: float = 1.0, noise_bandwidth: float | None = None,
+                 reference_temp_k: float = convert.REFERENCE_NOISE_TEMP_K) -> None:
         self.name = name
         self.description = description
         self.noise_figure = noise_figure
+        self.noise_bandwidth = _validate.optional_positive("noise_bandwidth", noise_bandwidth)
+        self.reference_temp_k = _validate.positive("reference_temp_k", reference_temp_k)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
-        """Multiply the noise power by the noise factor."""
+        """Add this stage's excess noise to the noise power."""
         noise_factor = 10.0**(self.noise_figure/10.0)
+        noise_power_out, excess_temp_k, excess_power = _noisy_stage_output(
+            noise_power, 1.0, noise_factor, self.noise_bandwidth, self.reference_temp_k)
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power,
-                     'noise_power_out': noise_power * noise_factor,
+                     'noise_power_out': noise_power_out,
                      'noise_figure': self.noise_figure,
-                     'noise_factor': noise_factor}
+                     'noise_factor': noise_factor,
+                     'noise_bandwidth': self.noise_bandwidth,
+                     'reference_temp_k': self.reference_temp_k,
+                     'excess_noise_temp_k': excess_temp_k,
+                     'excess_noise_power': excess_power,
+                     'noise_model': 'friis' if self.noise_bandwidth else 'multiplicative'}
         return data_dict
 
 class RFComponent(Component):
     """A generic gain block with a noise figure (e.g. an amplifier).
 
-    The signal scales by ``gain`` (dB); the noise scales by ``gain`` times
-    the ``noise_figure`` (dB) noise factor, so the SNR degrades by exactly
-    the noise figure.
+    The signal scales by ``gain`` (dB).  By default the noise scales by
+    ``gain`` times the ``noise_figure`` (dB) noise factor, so the SNR degrades
+    by exactly the noise figure wherever the stage sits.
+
+    Pass ``noise_bandwidth`` (Hz) to instead use the Friis added-noise form
+    ``N_out = (N_in + (F - 1) k T0 B) * G`` -- the excess noise is referred to
+    the input, so a noisy stage placed after gain barely matters.  This is an
+    absolute noise power, so use it alongside a `ThermalNoise` floor in watts.
     """
 
     def __init__(self, name: str = 'RF Component', description: str = '',
-                 gain: float = 1.0, noise_figure: float = 1.0) -> None:
+                 gain: float = 1.0, noise_figure: float = 1.0,
+                 noise_bandwidth: float | None = None,
+                 reference_temp_k: float = convert.REFERENCE_NOISE_TEMP_K) -> None:
         self.name = name
         self.description = description
         self.gain = gain
         self.noise_figure = noise_figure
+        self.noise_bandwidth = _validate.optional_positive("noise_bandwidth", noise_bandwidth)
+        self.reference_temp_k = _validate.positive("reference_temp_k", reference_temp_k)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
-        """Apply the gain to the signal and gain*noise-factor to the noise."""
+        """Apply the gain to the signal and add this stage's noise."""
         noise_factor = 10.0**(self.noise_figure/10.0)
         gain_linear = 10.0**(self.gain/10.0)
+        noise_power_out, excess_temp_k, excess_power = _noisy_stage_output(
+            noise_power, gain_linear, noise_factor,
+            self.noise_bandwidth, self.reference_temp_k)
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power * gain_linear,
-                     'noise_power_out': noise_power * gain_linear * noise_factor,
+                     'noise_power_out': noise_power_out,
                      'noise_figure': self.noise_figure,
                      'noise_factor': noise_factor,
-                     'gain': self.gain}
+                     'gain': self.gain,
+                     'noise_bandwidth': self.noise_bandwidth,
+                     'reference_temp_k': self.reference_temp_k,
+                     'excess_noise_temp_k': excess_temp_k,
+                     'excess_noise_power': excess_power,
+                     'noise_model': 'friis' if self.noise_bandwidth else 'multiplicative'}
         return data_dict
 
 class RadarCrossSection(Component):
@@ -764,12 +829,19 @@ class Mixer(Component):
     ``|rf - lo|`` otherwise).  If ``image_reject_db`` is given, the extra
     noise folded in from the unrejected image band is added on top; omit it
     to assume an ideal, fully image-rejected mixer.
+
+    Pass ``noise_bandwidth`` (Hz) to use the Friis added-noise form for the
+    noise-figure term (``N_out = (N_in + (F - 1) k T0 B) * G``, with the image
+    noise then ``k T0 B G / image_reject``); without it the scale-free
+    ``N_out = N_in * G * F`` is used.
     """
 
     def __init__(self, name: str = 'Mixer', description: str = '',
                  lo_frequency: float = 0.0, rf_frequency: float | None = None,
                  conversion_loss_db: float = 0.0, noise_figure_db: float | None = None,
-                 mode: str = 'downconvert', image_reject_db: float | None = None) -> None:
+                 mode: str = 'downconvert', image_reject_db: float | None = None,
+                 noise_bandwidth: float | None = None,
+                 reference_temp_k: float = convert.REFERENCE_NOISE_TEMP_K) -> None:
         self.name = name
         self.description = description
         self.lo_frequency = _validate.non_negative("lo_frequency", lo_frequency)
@@ -779,6 +851,8 @@ class Mixer(Component):
         self.noise_figure_db = conversion_loss_db if noise_figure_db is None else noise_figure_db
         self.mode = _validate.one_of("mode", mode, ("downconvert", "upconvert"))
         self.image_reject_db = image_reject_db
+        self.noise_bandwidth = _validate.optional_positive("noise_bandwidth", noise_bandwidth)
+        self.reference_temp_k = _validate.positive("reference_temp_k", reference_temp_k)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Apply conversion loss/gain, noise figure and any image noise."""
@@ -786,12 +860,19 @@ class Mixer(Component):
         noise_factor = convert.db_to_linear(self.noise_figure_db)
 
         signal_power_out = signal_power * conversion_gain_linear
-        noise_power_out = noise_power * conversion_gain_linear * noise_factor
+        noise_power_out, excess_temp_k, excess_power = _noisy_stage_output(
+            noise_power, conversion_gain_linear, noise_factor,
+            self.noise_bandwidth, self.reference_temp_k)
 
         image_noise_power = 0.0
         if self.image_reject_db is not None:
             image_reject_linear = convert.db_to_linear(self.image_reject_db)
-            image_noise_power = (noise_power * conversion_gain_linear) / image_reject_linear
+            if self.noise_bandwidth is None:
+                image_source_power = noise_power
+            else:
+                image_source_power = (convert.BOLTZMANN_CONSTANT * self.reference_temp_k
+                                      * self.noise_bandwidth)
+            image_noise_power = (image_source_power * conversion_gain_linear) / image_reject_linear
             noise_power_out += image_noise_power
 
         if self.rf_frequency is not None:
@@ -815,7 +896,12 @@ class Mixer(Component):
                      'conversion_loss_db': self.conversion_loss_db,
                      'noise_figure_db': self.noise_figure_db,
                      'image_reject_db': self.image_reject_db,
-                     'image_noise_power': image_noise_power}
+                     'image_noise_power': image_noise_power,
+                     'noise_bandwidth': self.noise_bandwidth,
+                     'reference_temp_k': self.reference_temp_k,
+                     'excess_noise_temp_k': excess_temp_k,
+                     'excess_noise_power': excess_power,
+                     'noise_model': 'friis' if self.noise_bandwidth else 'multiplicative'}
         return data_dict
 
 class Integrate(Component):

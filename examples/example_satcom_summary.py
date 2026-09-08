@@ -58,11 +58,16 @@ budget.add_component(lb.ParabolicDish(
 budget.add_component(lb.PolarizationMismatchLoss(
     "Polarization mismatch", "Circular feed against a slightly elliptical signal",
     axial_ratio_db_tx=0.8, axial_ratio_db_rx=1.0, tilt_angle_deg=15.0))
-budget.add_component(lb.ThermalNoise(
-    "System noise floor", "Antenna + LNA noise referenced to the feed",
-    temperature_k=120.0, bandwidth=NOISE_BW))
+# antenna noise (sky + a little ground spillover) sets the floor at the feed;
+# the LNB then adds its 0.7 dB noise figure on top via the Friis cascade, so
+# everything downstream of its 55 dB of gain is noise-irrelevant
+budget.add_component(lb.AntennaNoiseTemperature(
+    "Antenna noise", "Ku-band clear-sky brightness + 5% ground spillover",
+    sky_temp_k=25.0, ground_coupling=0.05, radiation_efficiency=0.99,
+    bandwidth=NOISE_BW))
 budget.add_component(lb.RFComponent(
-    "LNB", "Low-noise block downconverter", gain=55.0, noise_figure=0.7))
+    "LNB", "Low-noise block downconverter", gain=55.0, noise_figure=0.7,
+    noise_bandwidth=NOISE_BW))
 
 # --- Demodulator requirement ---
 budget.add_component(lb.LinkMargin(
@@ -72,7 +77,9 @@ budget.add_component(lb.LinkMargin(
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 stem = os.path.join(OUTPUT_DIR, "example_satcom_downlink")
-# a new container already publishes to stdout; add the file publishers alongside it
+# publish() falls back to stdout only when nothing is installed, so add a
+# StdOutPublisher explicitly alongside the file publishers
+budget.add_publisher(lb.StdOutPublisher())
 budget.add_publisher(lb.PDFPublisher(stem + ".pdf", title=TITLE))
 budget.add_publisher(lb.HTMLPublisher(stem + ".html", title=TITLE))
 budget.add_publisher(lb.MarkdownPublisher(stem + ".md", title=TITLE))

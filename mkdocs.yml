@@ -73,6 +73,7 @@ nav:
       - Figures of merit & link margin: guide/figures-of-merit.md
       - Propagation models: guide/propagation.md
       - Antenna models: guide/antennas.md
+      - Noise modelling: guide/noise.md
       - Publishers: guide/publishers.md
       - Validation & warnings: guide/validation.md
   - Component reference: components.md

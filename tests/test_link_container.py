@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from linkbudget import link_container as lc
-from linkbudget.publishers import StdOutPublisher
 
 
 class RecordingPublisher:
@@ -18,36 +17,22 @@ class RecordingPublisher:
 
 
 class TestConstruction:
-    def test_starts_empty_with_a_stdout_publisher(self):
+    def test_starts_with_no_components_data_or_publishers(self):
         budget = lc.LinkContainer()
         assert budget.components_list == []
         assert budget.data_list == []
-        assert isinstance(budget.publisher, StdOutPublisher)
+        assert budget.publishers == []
         assert budget.power_units == "W"
 
     def test_power_units_are_configurable(self):
         assert lc.LinkContainer(power_units="mW").power_units == "mW"
-
-    def test_starts_with_exactly_one_publisher(self):
-        assert len(lc.LinkContainer().publishers) == 1
-
-    def test_publisher_setter_replaces_the_list(self):
-        budget = lc.LinkContainer()
-        rec = RecordingPublisher()
-        budget.publisher = rec
-        assert budget.publishers == [rec]
-
-    def test_publisher_is_none_when_no_publishers_are_installed(self):
-        budget = lc.LinkContainer()
-        budget.publishers = []
-        assert budget.publisher is None
 
 
 class TestMultiplePublishers:
     def test_add_publisher_appends(self):
         budget = lc.LinkContainer()
         first, second = RecordingPublisher(), RecordingPublisher()
-        budget.publisher = first
+        budget.add_publisher(first)
         budget.add_publisher(second)
         assert budget.publishers == [first, second]
 
@@ -55,7 +40,7 @@ class TestMultiplePublishers:
         budget = lc.LinkContainer(power_units="mW")
         budget.add_component(lc.SignalSource("s", "", signal_power=2.0, noise_power=1.0))
         one, two, three = RecordingPublisher(), RecordingPublisher(), RecordingPublisher()
-        budget.publisher = one
+        budget.add_publisher(one)
         budget.add_publisher(two)
         budget.add_publisher(three)
 
@@ -67,12 +52,25 @@ class TestMultiplePublishers:
             assert power_units == "mW"
             assert data_list[0]["signal_power_out"] == pytest.approx(2.0)
 
-    def test_add_publisher_keeps_the_default_stdout_publisher(self):
+    def test_installed_publisher_suppresses_the_stdout_fallback(self, capsys):
         budget = lc.LinkContainer()
+        budget.add_component(lc.SignalSource("src", "desc-text", signal_power=1.0))
         rec = RecordingPublisher()
         budget.add_publisher(rec)
-        assert isinstance(budget.publishers[0], StdOutPublisher)
-        assert budget.publishers[1] is rec
+
+        budget.publish()
+
+        assert len(rec.calls) == 1
+        assert capsys.readouterr().out == ""
+
+    def test_publish_falls_back_to_stdout_when_no_publisher_is_installed(self, capsys):
+        budget = lc.LinkContainer()
+        budget.add_component(lc.SignalSource("src", "desc-text", signal_power=1.0))
+
+        budget.publish()
+
+        assert "src" in capsys.readouterr().out
+        assert budget.publishers == []
 
 
 class TestCompute:
@@ -137,7 +135,7 @@ class TestPublish:
     def test_publish_computes_then_delegates_to_the_publisher(self):
         budget = lc.LinkContainer(power_units="mW")
         rec = RecordingPublisher()
-        budget.publisher = rec
+        budget.add_publisher(rec)
         budget.add_component(lc.SignalSource("src", "", signal_power=2.0, noise_power=1.0))
 
         budget.publish()

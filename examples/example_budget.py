@@ -56,7 +56,9 @@ budget.add_component(linkbudget.SubBandTune(
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 stem = os.path.join(OUTPUT_DIR, 'example_link_budget')
-# a new container already publishes to stdout; add the file publishers alongside it
+# publish() falls back to stdout only when nothing is installed, so add a
+# StdOutPublisher explicitly alongside the file publishers
+budget.add_publisher(linkbudget.StdOutPublisher())
 budget.add_publisher(linkbudget.PDFPublisher(stem + '.pdf', title=TITLE))
 budget.add_publisher(linkbudget.HTMLPublisher(stem + '.html', title=TITLE))
 budget.add_publisher(linkbudget.MarkdownPublisher(stem + '.md', title=TITLE))

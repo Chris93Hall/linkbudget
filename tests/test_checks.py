@@ -4,6 +4,7 @@ import warnings
 
 import pytest
 
+from linkbudget import antennas
 from linkbudget import link_container as lc
 from linkbudget.checks import LinkBudgetWarning, check_budget
 
@@ -62,6 +63,20 @@ class TestRepeatedNoiseFloor:
         budget.add_component(lc.SignalSource("tx", "", signal_power=1.0, noise_power=1e-9))
         budget.add_component(lc.ThermalNoise("floor", "", bandwidth=1e6))
         assert not any("thermal noise floor" in m for m in budget.check())
+
+    def test_flags_two_antenna_noise_temperature_stages(self):
+        budget = lc.LinkContainer(warn=False)
+        budget.add_component(lc.SignalSource("tx", "", signal_power=1.0))
+        budget.add_component(antennas.AntennaNoiseTemperature("ant 1", "", bandwidth=1e6))
+        budget.add_component(antennas.AntennaNoiseTemperature("ant 2", "", bandwidth=1e6))
+        assert any("antenna noise temperature added 2 times" in m for m in budget.check())
+
+    def test_a_thermal_floor_and_an_antenna_floor_together_are_fine(self):
+        budget = lc.LinkContainer(warn=False)
+        budget.add_component(lc.SignalSource("tx", "", signal_power=1.0))
+        budget.add_component(antennas.AntennaNoiseTemperature("antenna", "", bandwidth=1e6))
+        budget.add_component(lc.ThermalNoise("receiver", "", temperature_k=75.0, bandwidth=1e6))
+        assert not any("double-counted" in m for m in budget.check())
 
 
 class TestNegativeLoss:

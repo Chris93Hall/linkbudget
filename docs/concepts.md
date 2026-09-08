@@ -23,15 +23,16 @@ budget = linkbudget.LinkContainer(
   recording `signal_gain`, `noise_gain` and `snr` per stage into
   `budget.data_list`. Called automatically by `publish()` and `summary()`.
 - **`publish()`** — `compute()`, then hand `data_list` to every installed
-  publisher.
+  publisher (or a `StdOutPublisher` fallback if none is installed).
 - **`summary()`** — `compute()`, then return a
   [`BudgetSummary`](guide/figures-of-merit.md) with the figures of merit.
 
 `power_units` is a **cosmetic label** for whatever linear unit your
 `signal_power` / `noise_power` values are in. Components add and multiply
 these values directly (never in dB), so keep the unit consistent across the
-whole chain. `ThermalNoise` computes `k·T·B` in watts, so if you use it,
-work in watts everywhere.
+whole chain. `ThermalNoise`, `AntennaNoiseTemperature` and the Friis noise
+model (see [Noise modelling](guide/noise.md)) all compute `k·T·B` in watts, so
+if you use any of them, work in watts everywhere.
 
 ## Components
 
@@ -84,10 +85,10 @@ A publisher turns the computed `data_list` into output. Add one, or
 ```python
 budget.add_publisher(linkbudget.HTMLPublisher("out.html"))
 budget.add_publisher(linkbudget.WaterfallPublisher("out.png"))
-budget.publish()   # runs stdout + the two you added
+budget.publish()   # runs the two you added
 ```
 
-`StdOutPublisher` is installed by default; assign `budget.publisher` (or
-`budget.publishers`) to drop or replace it. Write your own by subclassing
-`linkbudget.publishers.Publisher` and implementing
+With no publisher installed, `publish()` falls back to a `StdOutPublisher`;
+`add_publisher()` (or assigning `budget.publishers`) replaces that fallback.
+Write your own by subclassing `linkbudget.publishers.Publisher` and implementing
 `publish(data_list, power_units="W")`.
