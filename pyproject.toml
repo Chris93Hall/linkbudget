@@ -1,20 +1,43 @@
 [build-system]
-requires = ["setuptools>=64.0"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "linkbudget"
+name = "linkbudget-rf"
 version = "0.1.0"
 description = "A small Python library for building RF/communications link budgets"
 readme = "README.md"
 requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
-    { name = "chris", email = "chris93hall@gmail.com" },
+    { name = "Chris Hall", email = "chris93hall@gmail.com" },
+]
+keywords = [
+    "rf", "link-budget", "link budget", "satcom", "radar",
+    "communications", "antenna", "noise-figure", "eirp", "g/t",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Telecommunications Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=1.21.5",
     "fpdf2>=2.8.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Chris93Hall/linkbudget"
+Documentation = "https://chris93hall.github.io/linkbudget/"
+Repository = "https://github.com/Chris93Hall/linkbudget"
+Issues = "https://github.com/Chris93Hall/linkbudget/issues"
 
 [project.optional-dependencies]
 plot = [

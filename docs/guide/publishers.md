@@ -61,7 +61,7 @@ Signal and noise power are drawn as staircase traces in dBW; the shaded band
 between them is the running SNR; stages with zero signal or noise power
 (&minus;&infin; dBW) sit on the axis floor.
 
-Requires `matplotlib` — `pip install linkbudget[plot]`. It is imported
+Requires `matplotlib` — `pip install 'linkbudget-rf[plot]'`. It is imported
 lazily, so importing `linkbudget` never needs it.
 
 ## Writing your own

@@ -1,4 +1,4 @@
-.PHONY: help lint-tools test-tools example-tools docs-tools lint pylint ruff test coverage examples docs docs-serve build clean
+.PHONY: help lint-tools test-tools example-tools docs-tools lint pylint ruff test coverage examples docs docs-serve build dist-check clean
 
 PYTHON ?= python3
 PACKAGE := linkbudget
@@ -7,7 +7,7 @@ DOCS_ADDR ?= 0.0.0.0:8000
 
 help:
 	@echo "Targets:"
-	@echo "  lint-tools    Install linting/build tooling (ruff, pylint, build)"
+	@echo "  lint-tools    Install linting/build tooling (ruff, pylint, build, twine)"
 	@echo "  test-tools    Install test tooling (pytest, pytest-cov, matplotlib)"
 	@echo "  example-tools Install what the examples need (matplotlib)"
 	@echo "  docs-tools    Install docs tooling (mkdocs, mkdocs-material, mkdocstrings)"
@@ -20,10 +20,11 @@ help:
 	@echo "  docs          Build the documentation site into site/"
 	@echo "  docs-serve    Serve the documentation on $(DOCS_ADDR) (override with DOCS_ADDR=)"
 	@echo "  build         Build the sdist and wheel into dist/"
+	@echo "  dist-check    Build, then validate the artifacts with 'twine check'"
 	@echo "  clean         Remove build, test, docs and example-output artifacts"
 
 lint-tools:
-	$(PYTHON) -m pip install ruff pylint build
+	$(PYTHON) -m pip install ruff pylint build twine
 
 test-tools:
 	$(PYTHON) -m pip install pytest pytest-cov matplotlib
@@ -66,6 +67,9 @@ docs-serve:
 
 build: clean
 	$(PYTHON) -m build
+
+dist-check: build
+	$(PYTHON) -m twine check dist/*
 
 clean:
 	rm -rf dist build site $(PACKAGE).egg-info .pytest_cache .ruff_cache .coverage coverage htmlcov $(EXAMPLE_OUT)

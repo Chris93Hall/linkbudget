@@ -73,6 +73,11 @@ def test_every_component_inherits_the_base_class(name):
     assert issubclass(getattr(linkbudget, name), linkbudget.Component)
 
 
+def test_package_exposes_a_version_string():
+    assert isinstance(linkbudget.__version__, str)
+    assert linkbudget.__version__
+
+
 def test_package_reimports_cleanly():
     importlib.reload(linkbudget)
 

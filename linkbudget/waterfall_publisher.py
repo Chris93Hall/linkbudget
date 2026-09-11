@@ -7,7 +7,7 @@ is taken from the file extension (``.png``, ``.svg``, ``.pdf`` ...).
 
 ``matplotlib`` is imported lazily inside ``WaterfallPublisher.publish``, so
 it is only required when this publisher is actually used.  Install it with
-``pip install linkbudget[plot]``.
+``pip install 'linkbudget-rf[plot]'``.
 """
 
 from __future__ import annotations

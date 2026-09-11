@@ -1,5 +1,7 @@
 """RF / communications link-budget modelling."""
 
+from importlib.metadata import PackageNotFoundError, version
+
 from . import convert, fom
 from .antennas import (
     AntennaNoiseTemperature,
@@ -107,4 +109,11 @@ __all__ = [  # noqa: RUF022  -- grouped by role, not alphabetised
     "HTMLPublisher",
     "MarkdownPublisher",
     "WaterfallPublisher",
+    "__version__",
 ]
+
+try:
+    #: Installed distribution version (see the ``linkbudget-rf`` project on PyPI).
+    __version__ = version("linkbudget-rf")
+except PackageNotFoundError:  # running from a source tree without an install
+    __version__ = "0.0.0.dev0"

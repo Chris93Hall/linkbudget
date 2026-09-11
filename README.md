@@ -6,16 +6,24 @@ A small Python library for building RF/communications **link budgets**. You chai
 
 ## Installation
 
-The project is packaged with a standard `pyproject.toml` (setuptools backend), so it can be installed like any Python package:
+```bash
+pip install linkbudget-rf
+```
+
+The distribution is named **`linkbudget-rf`** on PyPI (the bare name was taken); the import name is just `linkbudget`. Optional extras: `linkbudget-rf[plot]` for the matplotlib waterfall publisher.
+
+This pulls in `numpy` and `fpdf2` automatically.
+
+### From source
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/Chris93Hall/linkbudget
 cd linkbudget
 pip install .          # regular install
 # pip install -e .     # editable install, for local development
 ```
 
-This pulls in `numpy` and `fpdf2` automatically. If you'd rather not install the package, `pip install -r requirements.txt` plus running scripts from the repository root also works, since `import linkbudget` then resolves to the local package directory — but the `examples/` scripts live one directory down (see below), so with this route you'd need `PYTHONPATH=. python examples/example_budget.py` from the repository root, rather than plain `python examples/example_budget.py`.
+If you'd rather not install the package, `pip install -r requirements.txt` plus running scripts from the repository root also works, since `import linkbudget` then resolves to the local package directory — but the `examples/` scripts live one directory down (see below), so with this route you'd need `PYTHONPATH=. python examples/example_budget.py` from the repository root, rather than plain `python examples/example_budget.py`.
 
 To build distributable artifacts (a wheel + sdist under `dist/`) without installing, e.g. to publish or hand off to someone else:
 
@@ -127,7 +135,7 @@ Publishers control how the computed link budget is reported. Every built-in publ
 - **`PDFPublisher(fpath, title='Link Budget Report')`** — writes the same summary + detailed report to a styled PDF file at `fpath` (requires the `fpdf2` package), visually matching `HTMLPublisher`'s layout and colors (striped tables, a dark header row, a title banner), with automatic multi-page pagination.
 - **`HTMLPublisher(fpath, title='Link Budget Report')`** — writes a single self-contained HTML file at `fpath` with a styled summary table and a detailed per-component breakdown.
 - **`MarkdownPublisher(fpath, title='Link Budget Report')`** — writes the same tables as a GitHub-flavoured Markdown (`.md`) file.
-- **`WaterfallPublisher(fpath, title='Link Budget Cascade')`** — renders the signal/noise/SNR cascade to an image (requires `matplotlib`; `pip install linkbudget[plot]`).
+- **`WaterfallPublisher(fpath, title='Link Budget Cascade')`** — renders the signal/noise/SNR cascade to an image (requires `matplotlib`; `pip install 'linkbudget-rf[plot]'`).
 
 ```python
 budget = linkbudget.LinkContainer(power_units='mW')
