@@ -10,7 +10,7 @@ A small Python library for building RF/communications **link budgets**. You chai
 pip install linkbudget-rf
 ```
 
-The distribution is named **`linkbudget-rf`** on PyPI (the bare name was taken); the import name is just `linkbudget`. Optional extras: `linkbudget-rf[plot]` for the matplotlib waterfall publisher.
+The distribution is named **`linkbudget-rf`** on PyPI; the import name is just `linkbudget`. Optional extras: `linkbudget-rf[plot]` for the matplotlib waterfall publisher.
 
 This pulls in `numpy` and `fpdf2` automatically.
 
