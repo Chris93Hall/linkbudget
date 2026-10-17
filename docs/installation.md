@@ -33,7 +33,7 @@ pip install -e '.[plot]'
 
 ## Requirements
 
-- Python 3.8 or newer
+- Python 3.10 or newer
 - `numpy >= 1.21.5`
 - `fpdf2 >= 2.8.1` (for [`PDFPublisher`](guide/publishers.md#pdfpublisher))
 
