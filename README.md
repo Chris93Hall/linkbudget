@@ -104,10 +104,10 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `SignalSource(name, description, signal_power, noise_power)` | Injects signal and/or noise power into the chain (e.g. a transmitter, or a noise source) | `signal_power`, `noise_power` (linear, added to whatever is already in the chain) |
 | `FreeSpacePathLoss(name, description, distance, frequency)` | Applies free-space path loss | `distance` (meters), `frequency` (Hz) |
 | `Gain(name, description, gain, db=True)` | Applies a gain (or loss, if negative) to both signal and noise | `gain`, `db` (`True` for dB, `False` for linear) |
-| `QuantizationNoise(name, description, total_bits, headroom_db)` | Adds quantization noise based on bit depth and headroom | `total_bits`, `headroom_db` |
+| `QuantizationNoise(name, description, total_bits, headroom_db)` | Adds quantization noise based on bit depth and headroom, referenced to a full-scale sine (`SQNR = 6.02·N + 1.76 dB` at 0 dB headroom) | `total_bits`, `headroom_db` |
 | `AnalogToDigitalConverter(name, description, gain_db, noise_figure_db, total_bits, headroom_db, sample_rate, noise_bandwidth)` | An ADC: input buffer gain/noise figure, then quantization noise, in one step. Equivalent to `RFComponent` followed by `QuantizationNoise` | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, optional `sample_rate` (Hz, informational), `noise_bandwidth` (Hz, forwarded to the buffer stage) |
 | `DigitalToAnalogConverter(name, description, total_bits, headroom_db, gain_db, noise_figure_db, sample_rate, noise_bandwidth)` | A DAC: quantization noise, then output driver gain/noise figure, in one step (reverse order of `AnalogToDigitalConverter`). Equivalent to `QuantizationNoise` followed by `RFComponent` | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, optional `sample_rate` (Hz, informational), `noise_bandwidth` (Hz, forwarded to the driver stage) |
-| `SubBandTune(name, description, input_lower_freq, input_upper_freq, signal_lower_freq, signal_upper_freq, output_lower_freq, output_upper_freq)` | Models filtering/retuning to a sub-band, reducing signal and noise bandwidth accordingly | frequency band edges (Hz) |
+| `SubBandTune(name, description, input_lower_freq, input_upper_freq, signal_lower_freq, signal_upper_freq, output_lower_freq, output_upper_freq)` | Models filtering/retuning to a sub-band: noise scales by the fraction of the input band inside the output band, the signal by the fraction of the signal band inside both the input and output bands | frequency band edges (Hz) |
 | `RadarCrossSection(name, description, rcs_db)` | Applies a radar cross-section scaling factor as a plain dB power multiplier | `rcs_db` |
 | `RadarPathLoss(name, description, distance / tx_distance+rx_distance, frequency, rcs_db)` | Correct two-way radar path loss in one step: `λ²·σ / ((4π)³·R_tx²·R_rx²)` | `distance` or `tx_distance`+`rx_distance`, `frequency` (Hz), `rcs_db` (dB relative to 1 m²) |
 | `RadarPathLossOneWay(name, description, distance, frequency)` | One leg of a two-way radar path, calibrated so `RadarPathLossOneWay -> RadarCrossSection -> RadarPathLossOneWay` reproduces `RadarPathLoss` exactly | `distance` (meters), `frequency` (Hz) |
@@ -121,7 +121,7 @@ All components implement `propagate_signal(signal_power, noise_power)` and retur
 | `PolarizationLoss(name, description, loss_db)` | `ImplementationLoss` specialized to a single polarization loss term | `loss_db` |
 | `NoiseFigure(name, description, noise_figure, noise_bandwidth)` | Adds the noise of a noise-figure stage; signal unchanged | `noise_figure` (dB), optional `noise_bandwidth` (Hz, opt-in Friis noise) |
 | `RFComponent(name, description, gain, noise_figure, noise_bandwidth)` | A generic gain block with a noise figure (e.g. an amplifier) — signal scales by `gain` | `gain` (dB), `noise_figure` (dB), optional `noise_bandwidth` (Hz, opt-in Friis noise) |
-| `Integrate(name, description, timespan)` | Coherent integration (e.g. pulse integration): signal power scales by `timespan` (the processing gain), noise is unaffected | `timespan` |
+| `Integrate(name, description, num_samples, timespan, bandwidth)` | Coherent integration (e.g. pulse integration): signal power scales by the dimensionless processing gain, noise is unaffected. Give `num_samples` (pulses/samples), or `timespan` (s) **and** `bandwidth` (Hz) for a gain of `timespan × bandwidth`. A time alone is not a gain | `num_samples` or `timespan` + `bandwidth` |
 
 `CableLoss`, `PointingLoss`, and `PolarizationLoss` are thin subclasses of `ImplementationLoss` — each just sets one of its loss terms, so you can add them individually to a chain instead of bundling all loss sources into a single `ImplementationLoss` component. They share its signal-only degradation behavior.
 
@@ -157,7 +157,7 @@ You can write your own publisher by subclassing `linkbudget.publishers.Publisher
 `linkbudget.convert` provides small helpers used throughout the library:
 
 - `linear_to_db(val)` / `db_to_linear(val)` — convert between linear power ratios and dB.
-- `scale_hertz(freq)` — scales a frequency in Hz to the most readable unit (kHz/MHz/GHz) for display.
+- `scale_hertz(freq)` — scales a frequency in Hz to the most readable unit (kHz/MHz/GHz) for display; exactly 1 kHz / 1 MHz / 1 GHz use the larger unit.
 
 ## Notes
 

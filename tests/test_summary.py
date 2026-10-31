@@ -97,6 +97,78 @@ class TestFiguresOfMerit:
         assert summary.system_noise_temp_k is None
 
 
+class TestSystemNoiseTempReferral:
+    """Signal-only stages must not change how later noise is referred to the input."""
+
+    @staticmethod
+    def _budget(middle):
+        budget = lc.LinkContainer(noise_bandwidth=1e6, warn=False)
+        budget.add_component(lc.SignalSource("tx", "", signal_power=1e-12))
+        budget.add_component(lc.Gain("Rx antenna", "", gain=30.0, role="rx"))
+        budget.add_component(lc.ThermalNoise("Floor", "", temperature_k=100.0, bandwidth=1e6))
+        for component in middle:
+            budget.add_component(component)
+        budget.add_component(lc.RFComponent("LNA", "", gain=20.0, noise_figure=3.0,
+                                            noise_bandwidth=1e6))
+        return budget
+
+    def test_signal_only_loss_does_not_reduce_referred_lna_noise(self):
+        base = self._budget([]).summary()
+        lossy = self._budget([lc.ImplementationLoss("loss", "", cable_loss_db=6.0)]).summary()
+        assert lossy.system_noise_temp_k == pytest.approx(base.system_noise_temp_k)
+        assert lossy.g_over_t_db == pytest.approx(base.g_over_t_db)
+
+    def test_a_real_attenuator_does_reduce_referred_lna_noise(self):
+        base = self._budget([]).summary()
+        atten = self._budget([lc.Gain("pad", "", gain=-6.0)]).summary()
+        lna_temp = (convert.db_to_linear(3.0) - 1.0) * convert.REFERENCE_NOISE_TEMP_K
+        assert base.system_noise_temp_k == pytest.approx(100.0 + lna_temp)
+        assert atten.system_noise_temp_k == pytest.approx(
+            100.0 + lna_temp / convert.db_to_linear(-6.0))
+
+    def test_integration_gain_does_not_shrink_referred_noise(self):
+        base = self._budget([]).summary()
+        integ = self._budget([lc.Integrate("int", "", num_samples=100.0)]).summary()
+        assert integ.system_noise_temp_k == pytest.approx(base.system_noise_temp_k)
+
+    def test_subband_filter_refers_noise_by_the_noise_bandwidth_ratio(self):
+        tuner = lc.SubBandTune(
+            input_lower_freq=0.0, input_upper_freq=10e6,
+            signal_lower_freq=1e6, signal_upper_freq=2e6,
+            output_lower_freq=1e6, output_upper_freq=2e6)
+        base = self._budget([]).summary()
+        filt = self._budget([tuner]).summary()
+        lna_temp = (convert.db_to_linear(3.0) - 1.0) * convert.REFERENCE_NOISE_TEMP_K
+        assert filt.system_noise_temp_k == pytest.approx(100.0 + lna_temp / 0.1)
+        assert filt.system_noise_temp_k > base.system_noise_temp_k
+
+
+class TestSystemNoiseTempRobustness:
+    def test_filter_that_passes_no_noise_does_not_divide_by_zero(self):
+        budget = lc.LinkContainer(noise_bandwidth=1e6, warn=False)
+        budget.add_component(lc.SignalSource("tx", "", signal_power=1e-12))
+        budget.add_component(lc.Gain("Rx antenna", "", gain=30.0, role="rx"))
+        budget.add_component(lc.ThermalNoise("Floor", "", temperature_k=100.0, bandwidth=1e6))
+        budget.add_component(lc.SubBandTune(
+            input_lower_freq=0.0, input_upper_freq=1e6,
+            signal_lower_freq=0.2e6, signal_upper_freq=0.4e6,
+            output_lower_freq=5e6, output_upper_freq=7e6))
+        budget.add_component(lc.RFComponent("LNA", "", gain=20.0, noise_figure=3.0,
+                                            noise_bandwidth=1e6))
+        summary = budget.summary()
+        # only the floor contributes; everything after the filter is unobservable
+        assert summary.system_noise_temp_k == pytest.approx(100.0)
+
+    def test_fully_attenuated_signal_does_not_divide_by_zero(self):
+        budget = lc.LinkContainer(noise_bandwidth=1e6, warn=False)
+        budget.add_component(lc.SignalSource("tx", "", signal_power=1e-12, noise_power=0.0))
+        budget.add_component(lc.ThermalNoise("Floor", "", temperature_k=100.0, bandwidth=1e6))
+        budget.add_component(lc.Gain("dead", "", gain=-1e6))   # underflows to 0 gain
+        budget.add_component(lc.RFComponent("LNA", "", gain=20.0, noise_figure=3.0,
+                                            noise_bandwidth=1e6))
+        assert budget.summary().system_noise_temp_k == pytest.approx(100.0)
+
+
 class TestMarginInSummary:
     def test_margin_and_closes_surface_from_a_link_margin_stage(self, satcom_budget):
         satcom_budget.add_component(LinkMargin(

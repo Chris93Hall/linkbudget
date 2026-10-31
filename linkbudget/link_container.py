@@ -49,6 +49,11 @@ def _noisy_stage_output(noise_power_in: float, gain_linear: float, noise_factor:
     return noise_power_out, excess_noise_temp_k, excess_noise_power
 
 
+# SQNR of an ideal N-bit converter driven by a full-scale sine is
+# ``1.5 * 4**N`` (= 6.02 N + 1.76 dB): signal V_fs**2/8 over noise V_fs**2/(12 4**N)
+_FULL_SCALE_SINE_SQNR_FACTOR: float = 1.5
+
+
 class LinkContainer:
     """Holds the ordered chain of components and drives the computation.
 
@@ -297,8 +302,13 @@ class QuantizationNoise(Component):
     driven ``headroom_db`` below full scale.
 
     Signal power passes through unchanged; the quantization noise
-    ``(S+N) / (4**effective_bits) / 12`` is added to the noise, where
+    ``(S+N) / (1.5 * 4**effective_bits)`` is added to the noise, where
     ``effective_bits = total_bits - headroom_db / 6.0206``.
+
+    The reference is a sine wave that just fills the converter at
+    ``headroom_db = 0``: its power is ``V_fs**2 / 8`` against a quantization
+    noise of ``V_fs**2 / (12 * 4**N)`` (LSB**2 / 12), i.e. the textbook
+    ``SQNR = 6.02 N + 1.76 dB``.
     """
 
     def __init__(self, name: str = 'Quantization noise', description: str = '',
@@ -313,8 +323,12 @@ class QuantizationNoise(Component):
         total_power = signal_power + noise_power # assume uncorrelated noise
         headroom_bits = self.headroom_db / 6.0206  # 6.02 dB per bit, the standard ADC backoff rule
         effective_bits = self.total_bits - headroom_bits
-        divisor = 4.0**effective_bits
-        quant_noise = float("inf") if divisor == 0.0 else total_power / divisor / 12.0
+        try:
+            divisor = 4.0**effective_bits
+        except OverflowError:  # absurdly many bits: effectively noiseless
+            divisor = float("inf")
+        quant_noise = (float("inf") if divisor == 0.0
+                       else total_power / (divisor * _FULL_SCALE_SINE_SQNR_FACTOR))
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
@@ -426,17 +440,25 @@ class DigitalToAnalogConverter(Component):
                      'sample_rate': self.sample_rate}
         return data_dict
 
+def _band_overlap(*bands: tuple[float, float]) -> float:
+    """Width (Hz) of the intersection of the ``(lower, upper)`` bands; ``0.0``
+    when they do not all overlap."""
+    return max(0.0, min(upper for _, upper in bands) - max(lower for lower, _ in bands))
+
+
 class SubBandTune(Component):
     """Models filtering / retuning to a narrower sub-band.
 
-    Noise scales by the ``output`` / ``input`` bandwidth ratio; the signal
-    scales by the fraction of the ``signal`` band that survives inside the
-    ``output`` band (zero if they do not overlap).  All six band edges are in
-    Hz; each ``*_upper_freq`` must exceed its ``*_lower_freq``.
+    Noise (assumed spectrally flat across the ``input`` band) scales by the
+    fraction of the ``input`` band that lies inside the ``output`` band; the
+    signal scales by the fraction of the ``signal`` band that lies inside both
+    the ``input`` and ``output`` bands (zero if there is no overlap).  All six
+    band edges are in Hz; each ``*_upper_freq`` must exceed its
+    ``*_lower_freq``.
     """
 
     def __init__(self, name: str = 'Sub-band Tuner', description: str = '',
-                 input_upper_freq: float = 1e6, input_lower_freq: float = 0.0,
+                 input_upper_freq: float = 5e6, input_lower_freq: float = 0.0,
                  signal_upper_freq: float = 4e6, signal_lower_freq: float = 2e6,
                  output_upper_freq: float = 3e6, output_lower_freq: float = 2e6) -> None:
 
@@ -466,15 +488,17 @@ class SubBandTune(Component):
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Scale signal by the surviving-band fraction and noise by the
         output/input bandwidth ratio."""
-        noise_reduction_ratio = (
-            (self.output_upper_freq - self.output_lower_freq)
-            / (self.input_upper_freq - self.input_lower_freq))
+        input_bw = self.input_upper_freq - self.input_lower_freq
         signal_bw = self.signal_upper_freq - self.signal_lower_freq
-        # the surviving signal band is the overlap of the signal and output
-        # bands -- clamp to zero when they do not overlap
-        new_signal_bw = max(0.0,
-                            min(self.output_upper_freq, self.signal_upper_freq)
-                            - max(self.output_lower_freq, self.signal_lower_freq))
+        # only noise that was present in the input band can pass the filter,
+        # and only signal that is inside both the input and output bands
+        noise_reduction_ratio = _band_overlap(
+            (self.input_lower_freq, self.input_upper_freq),
+            (self.output_lower_freq, self.output_upper_freq)) / input_bw
+        new_signal_bw = _band_overlap(
+            (self.input_lower_freq, self.input_upper_freq),
+            (self.output_lower_freq, self.output_upper_freq),
+            (self.signal_lower_freq, self.signal_upper_freq))
         signal_reduction_ratio = new_signal_bw / signal_bw
         data_dict = {'name': self.name,
                      'description': self.description,
@@ -482,6 +506,7 @@ class SubBandTune(Component):
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power * signal_reduction_ratio,
                      'noise_power_out': noise_power * noise_reduction_ratio,
+                     'noise_referral_gain': noise_reduction_ratio,
                      'input_lower_frequency': self.input_lower_freq,
                      'input_upper_frequency': self.input_upper_freq,
                      'output_lower_frequency': self.output_lower_freq,
@@ -551,6 +576,7 @@ class ImplementationLoss(Component):
                      'noise_power_in': noise_power,
                      'signal_power_out': signal_power / loss_linear,
                      'noise_power_out': noise_power,
+                     'noise_referral_gain': 1.0,
                      'cable_loss_db': self.cable_loss_db,
                      'pointing_loss_db': self.pointing_loss_db,
                      'polarization_loss_db': self.polarization_loss_db,
@@ -906,22 +932,52 @@ class Mixer(Component):
 
 class Integrate(Component):
     """Coherent integration (e.g. pulse integration): the signal power scales
-    by ``timespan`` (the coherent processing gain) while the noise power is
-    left unchanged, so the SNR improves by ``timespan``."""
+    by the dimensionless processing gain while the noise power is left
+    unchanged, so the SNR improves by that factor.
+
+    Give the gain either as ``num_samples`` (pulses / samples integrated
+    coherently), or as ``timespan`` (seconds) together with ``bandwidth``
+    (Hz), in which case the gain is the time-bandwidth product
+    ``timespan * bandwidth``.  A bare time in seconds is not a gain, so
+    ``timespan`` alone is rejected.  The resulting gain must be at least 1.
+    """
 
     def __init__(self, name: str = 'Integration', description: str = '',
-                 timespan: float = 1.0) -> None:
+                 num_samples: float | None = None, timespan: float | None = None,
+                 bandwidth: float | None = None) -> None:
         self.name = name
         self.description = description
-        self.timespan = _validate.positive("timespan", timespan)
+        self.timespan = _validate.optional_positive("timespan", timespan)
+        self.bandwidth = _validate.optional_positive("bandwidth", bandwidth)
+        self.num_samples: float | None
+        if num_samples is not None:
+            if timespan is not None or bandwidth is not None:
+                raise ValueError("give num_samples, or timespan and bandwidth, not both")
+            self.num_samples = _validate.positive("num_samples", num_samples)
+            self.integration_gain = float(num_samples)
+        elif timespan is not None and bandwidth is not None:
+            self.num_samples = None
+            self.integration_gain = timespan * bandwidth
+        else:
+            raise ValueError("give num_samples, or both timespan and bandwidth")
+        # integrating can only help: a gain below 1 (fewer than one sample, or
+        # a time-bandwidth product below 1) is a unit mix-up, not a processing loss
+        if self.integration_gain < 1.0:
+            raise ValueError(
+                f"integration gain must be at least 1 (got {self.integration_gain!r}); "
+                "use a negative-dB Gain for a loss")
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
-        """Multiply the signal power by ``timespan``; leave noise unchanged."""
+        """Multiply the signal power by the integration gain; leave noise unchanged."""
         data_dict = {'name': self.name,
                      'description': self.description,
                      'signal_power_in': signal_power,
                      'noise_power_in': noise_power,
-                     'signal_power_out': signal_power * self.timespan,
+                     'signal_power_out': signal_power * self.integration_gain,
                      'noise_power_out': noise_power,
-                     'integration_time': self.timespan}
+                     'noise_referral_gain': 1.0,
+                     'integration_gain': self.integration_gain,
+                     'num_samples': self.num_samples,
+                     'integration_time': self.timespan,
+                     'bandwidth': self.bandwidth}
         return data_dict

@@ -29,6 +29,12 @@ edges are non-negative and ordered; `ArrayFactor.num_elements >= 1`.
 Where a band mismatch is physically meaningful rather than an error — a
 `SubBandTune` whose output band does not overlap the signal band — the
 signal is clamped to zero (fully filtered out) instead of going negative.
+Likewise, noise only passes where the output band overlaps the *input* band,
+so an output band outside the input band passes no noise and a wider output
+band never amplifies it. `Integrate` needs a dimensionless gain
+(`num_samples`, or `timespan` together with `bandwidth`) of at least 1; a
+time alone, or a gain below 1, is rejected. `TroposphericScintillation.time_percent` must be in `[0.01, 50]`,
+the range of the P.618 time-percentage factor.
 
 ## Budget checks
 

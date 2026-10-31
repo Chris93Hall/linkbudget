@@ -94,6 +94,27 @@ class TestRainAttenuationComponent:
         assert out["specific_attenuation_db_per_km"] > 0.0
         assert 0.0 < out["effective_path_length_km"] <= 5.0
 
+    def test_horizontal_path_uses_theta_zero_for_polarization(self):
+        # horizontal polarization is attenuated more than vertical on a
+        # horizontal path (P.838: cos(theta) = 1 at theta = 0)
+        def gamma(tilt):
+            return RainAttenuation(
+                "rain", "", frequency=20e9, rain_rate=25.0,
+                polarization_tilt_deg=tilt, path_length_km=5.0,
+            ).propagate_signal(1.0, 1.0)["specific_attenuation_db_per_km"]
+
+        k_h, a_h = rain_kalpha(20e9, 0.0, 0.0)
+        k_v, a_v = rain_kalpha(20e9, 90.0, 0.0)
+        assert gamma(0.0) == pytest.approx(k_h * 25.0 ** a_h)
+        assert gamma(90.0) == pytest.approx(k_v * 25.0 ** a_v)
+        assert gamma(0.0) > gamma(45.0) > gamma(90.0)
+
+    def test_circular_horizontal_path_matches_the_polarization_average(self):
+        circ = RainAttenuation("rain", "", frequency=20e9, rain_rate=25.0,
+                               polarization_tilt_deg=45.0, path_length_km=5.0
+                               ).propagate_signal(1.0, 1.0)["specific_attenuation_db_per_km"]
+        assert circ == pytest.approx(rain_specific_attenuation_db_per_km(20e9, 25.0, 45.0, 0.0))
+
     def test_dry_conditions_are_transparent(self):
         comp = RainAttenuation("rain", "", frequency=12e9, rain_rate=0.0, path_length_km=5.0)
         out = comp.propagate_signal(2.0, 1.0)

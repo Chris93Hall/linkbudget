@@ -14,7 +14,7 @@ signature).
 | `RFComponent` | Generic gain block with a noise figure (an amplifier) | `gain` (dB), `noise_figure` (dB), `noise_bandwidth` (Hz, opt-in Friis) |
 | `NoiseFigure` | Add the noise of a noise-figure stage; signal unchanged | `noise_figure` (dB), `noise_bandwidth` (Hz, opt-in Friis) |
 | `ArrayFactor` | Array gain from element count | `num_elements`, `role=None` |
-| `Integrate` | Coherent integration: signal ×`timespan`, noise unchanged | `timespan` |
+| `Integrate` | Coherent integration: signal × the dimensionless processing gain (≥ 1), noise unchanged | `num_samples`, or `timespan` (s) + `bandwidth` (Hz) for a gain of `timespan × bandwidth` |
 
 ## Path loss (tagged `is_propagation`)
 
@@ -60,8 +60,8 @@ attenuator that reduces signal and noise together, use a negative-dB `Gain`.
 | Component | Purpose | Key arguments |
 |---|---|---|
 | `Mixer` | Up/down-conversion, conversion loss, noise figure, image noise | `lo_frequency`, `rf_frequency`, `conversion_loss_db`, `mode`, `noise_figure_db`, `image_reject_db`, `noise_bandwidth` |
-| `SubBandTune` | Filter/retune to a sub-band, reducing signal and noise bandwidth | band-edge frequencies (Hz) |
-| `QuantizationNoise` | Add quantization noise from bit depth + headroom | `total_bits`, `headroom_db` |
+| `SubBandTune` | Filter/retune to a sub-band. Noise scales by the fraction of the input band inside the output band; the signal by the fraction of the signal band inside both | band-edge frequencies (Hz) |
+| `QuantizationNoise` | Add quantization noise from bit depth + headroom, referenced to a full-scale sine (`SQNR = 6.02·N + 1.76 dB` at 0 dB headroom) | `total_bits`, `headroom_db` |
 | `AnalogToDigitalConverter` | Buffer gain/NF then quantization noise, in one step | `gain_db`, `noise_figure_db`, `total_bits`, `headroom_db`, `sample_rate`, `noise_bandwidth` |
 | `DigitalToAnalogConverter` | Quantization noise then output driver gain/NF | `total_bits`, `headroom_db`, `gain_db`, `noise_figure_db`, `sample_rate`, `noise_bandwidth` |
 

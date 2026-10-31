@@ -119,7 +119,7 @@ class TestQuantizationNoise:
     def test_quantisation_noise_adds_to_the_noise_floor(self):
         qn = lc.QuantizationNoise(total_bits=12, headroom_db=0)
         out = qn.propagate_signal(3.0, 1.0)
-        expected_qn = (3.0 + 1.0) / 4.0 ** 12 / 12.0
+        expected_qn = (3.0 + 1.0) / (1.5 * 4.0 ** 12)
         assert out["quantization_noise"] == pytest.approx(expected_qn)
         assert out["noise_power_out"] == pytest.approx(1.0 + expected_qn)
 
@@ -128,6 +128,27 @@ class TestQuantizationNoise:
         out = qn.propagate_signal(1.0, 0.0)
         assert out["effective_bits"] == pytest.approx(11.0, abs=1e-4)
         assert out["headroom_bits"] == pytest.approx(1.0, abs=1e-4)
+
+    @pytest.mark.parametrize("bits", [8, 12, 16])
+    def test_full_scale_sine_sqnr_is_six_db_per_bit_plus_1_76(self, bits):
+        out = lc.QuantizationNoise(total_bits=bits, headroom_db=0).propagate_signal(1.0, 0.0)
+        sqnr_db = -10.0 * np.log10(out["quantization_noise"])
+        assert sqnr_db == pytest.approx(6.0206 * bits + 1.76, abs=0.01)
+
+    def test_each_six_db_of_headroom_costs_six_db_of_sqnr(self):
+        none = lc.QuantizationNoise(total_bits=12, headroom_db=0).propagate_signal(1.0, 0.0)
+        some = lc.QuantizationNoise(total_bits=12, headroom_db=6.0206).propagate_signal(1.0, 0.0)
+        assert some["quantization_noise"] / none["quantization_noise"] == pytest.approx(
+            10.0 ** 0.60206, rel=1e-4)
+
+    def test_absurd_bit_depth_is_noiseless_rather_than_overflowing(self):
+        out = lc.QuantizationNoise(total_bits=5000).propagate_signal(1.0, 1.0)
+        assert out["quantization_noise"] == 0.0
+        assert out["noise_power_out"] == 1.0
+
+    def test_enormous_headroom_gives_infinite_noise(self):
+        out = lc.QuantizationNoise(total_bits=1, headroom_db=1e6).propagate_signal(1.0, 0.0)
+        assert out["quantization_noise"] == float("inf")
 
     def test_more_bits_means_less_quantisation_noise(self):
         low = lc.QuantizationNoise(total_bits=8).propagate_signal(1.0, 0.0)
@@ -328,13 +349,48 @@ class TestMixer:
 
 class TestIntegrate:
     def test_signal_gets_the_coherent_processing_gain(self):
-        out = lc.Integrate("i", "", timespan=64.0).propagate_signal(2.0, 0.5)
+        out = lc.Integrate("i", "", num_samples=64.0).propagate_signal(2.0, 0.5)
         assert out["signal_power_out"] == pytest.approx(128.0)
+        assert out["integration_gain"] == 64.0
 
     def test_noise_is_unaffected(self):
-        out = lc.Integrate("i", "", timespan=64.0).propagate_signal(2.0, 0.5)
+        out = lc.Integrate("i", "", num_samples=64.0).propagate_signal(2.0, 0.5)
         assert out["noise_power_out"] == pytest.approx(0.5)
-        assert out["integration_time"] == 64.0
+
+    def test_snr_improves_by_the_gain(self):
+        out = lc.Integrate("i", "", num_samples=100.0).propagate_signal(1.0, 1.0)
+        snr_gain_db = convert.linear_to_db(out["signal_power_out"] / out["noise_power_out"])
+        assert snr_gain_db == pytest.approx(20.0)
+
+    def test_gain_is_the_time_bandwidth_product(self):
+        # 1 ms over 1 MHz is a +30 dB gain, not a 0.001x loss
+        out = lc.Integrate("i", "", timespan=1e-3, bandwidth=1e6).propagate_signal(1.0, 1.0)
+        assert out["integration_gain"] == pytest.approx(1000.0)
+        assert out["signal_power_out"] == pytest.approx(1000.0)
+        assert out["integration_time"] == 1e-3
+
+    def test_timespan_alone_is_not_a_gain(self):
+        with pytest.raises(ValueError):
+            lc.Integrate("i", "", timespan=1e-3)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"num_samples": 0.5},
+        {"timespan": 1e-6, "bandwidth": 1e3},   # time-bandwidth product 1e-3
+    ])
+    def test_gain_below_one_is_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            lc.Integrate("i", "", **kwargs)
+
+    def test_gain_of_exactly_one_is_allowed(self):
+        assert lc.Integrate("i", "", num_samples=1.0).integration_gain == 1.0
+
+    def test_needs_some_gain_specification(self):
+        with pytest.raises(ValueError):
+            lc.Integrate("i", "")
+
+    def test_rejects_both_forms_at_once(self):
+        with pytest.raises(ValueError):
+            lc.Integrate("i", "", num_samples=4.0, timespan=1.0, bandwidth=1.0)
 
 
 class TestSubBandTune:
@@ -365,6 +421,56 @@ class TestSubBandTune:
         out = sbt.propagate_signal(3.0, 0.0)
         # kept band is 3e6..4e6 out of a 3e6-wide signal -> 1/3 survives
         assert out["signal_power_out"] == pytest.approx(1.0)
+
+
+class TestSubBandTuneBandOverlap:
+    def test_output_band_outside_input_band_passes_no_noise(self):
+        out = lc.SubBandTune(
+            input_lower_freq=0.0, input_upper_freq=1e6,
+            signal_lower_freq=0.2e6, signal_upper_freq=0.4e6,
+            output_lower_freq=5e6, output_upper_freq=7e6,
+        ).propagate_signal(1.0, 1.0)
+        assert out["noise_power_out"] == 0.0
+        assert out["signal_power_out"] == 0.0
+
+    def test_output_band_wider_than_input_band_cannot_amplify_noise(self):
+        out = lc.SubBandTune(
+            input_lower_freq=10e6, input_upper_freq=11e6,
+            signal_lower_freq=10.2e6, signal_upper_freq=10.8e6,
+            output_lower_freq=0.0, output_upper_freq=50e6,
+        ).propagate_signal(1.0, 1.0)
+        assert out["noise_power_out"] == pytest.approx(1.0)
+        assert out["signal_power_out"] == pytest.approx(1.0)
+
+    def test_output_band_partly_overlapping_input_band(self):
+        out = lc.SubBandTune(
+            input_lower_freq=0.0, input_upper_freq=10e6,
+            signal_lower_freq=8e6, signal_upper_freq=9e6,
+            output_lower_freq=5e6, output_upper_freq=15e6,
+        ).propagate_signal(1.0, 1.0)
+        # only 5..10 MHz of the output band was ever in the input band
+        assert out["noise_power_out"] == pytest.approx(0.5)
+
+    def test_signal_outside_the_input_band_is_not_passed(self):
+        out = lc.SubBandTune(
+            input_lower_freq=0.0, input_upper_freq=10e6,
+            signal_lower_freq=8e6, signal_upper_freq=12e6,
+            output_lower_freq=0.0, output_upper_freq=20e6,
+        ).propagate_signal(1.0, 1.0)
+        assert out["signal_power_out"] == pytest.approx(0.5)
+
+    def test_default_bands_are_self_consistent(self):
+        out = lc.SubBandTune().propagate_signal(1.0, 1.0)
+        assert out["signal_power_out"] == pytest.approx(0.5)
+        assert out["noise_power_out"] == pytest.approx(0.2)
+
+    def test_reports_the_noise_referral_gain(self):
+        out = lc.SubBandTune(
+            input_lower_freq=0.0, input_upper_freq=50e6,
+            output_lower_freq=20e6, output_upper_freq=22e6,
+            signal_lower_freq=20.2e6, signal_upper_freq=21.8e6,
+        ).propagate_signal(1.0, 1.0)
+        assert out["noise_referral_gain"] == pytest.approx(2e6 / 50e6)
 
 
 class TestAnalogToDigitalConverter:

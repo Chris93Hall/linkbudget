@@ -57,13 +57,18 @@ class TestScaleHertz:
     def test_gigahertz(self):
         assert convert.scale_hertz(5e9) == (5.0, "GHz")
 
-    def test_exactly_one_khz_is_not_scaled(self):
-        # the comparison is strict ( > 1e3 ), so the boundary falls through to Hz
-        assert convert.scale_hertz(1e3) == (1e3, "Hz")
+    @pytest.mark.parametrize("freq, expected", [
+        (1e3, (1.0, "kHz")),
+        (1e6, (1.0, "MHz")),
+        (1e9, (1.0, "GHz")),
+    ])
+    def test_exact_unit_boundaries_use_the_larger_unit(self, freq, expected):
+        assert convert.scale_hertz(freq) == expected
 
-    def test_exactly_one_mhz_falls_through_to_hz(self):
-        # 1e6 is neither < 1e6 nor > 1e6, so no band matches
-        assert convert.scale_hertz(1e6) == (1e6, "Hz")
+    def test_just_below_a_boundary_stays_in_the_smaller_unit(self):
+        assert convert.scale_hertz(999.0) == (999.0, "Hz")
+        assert convert.scale_hertz(999e3)[1] == "kHz"
+        assert convert.scale_hertz(999e6)[1] == "MHz"
 
 
 def test_boltzmann_constant_value():

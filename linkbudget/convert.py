@@ -41,10 +41,10 @@ def scale_hertz(freq: float) -> tuple[float, str]:
     Returns ``(value, unit)`` where ``unit`` is one of ``"Hz"``, ``"kHz"``,
     ``"MHz"`` or ``"GHz"``.
     """
-    if freq > 1e3 and freq < 1e6:
-        return freq / 1e3, 'kHz'
-    if freq > 1e6 and freq < 1e9:
-        return freq / 1e6, 'MHz'
-    if freq > 1e9:
+    if freq >= 1e9:
         return freq / 1e9, 'GHz'
+    if freq >= 1e6:
+        return freq / 1e6, 'MHz'
+    if freq >= 1e3:
+        return freq / 1e3, 'kHz'
     return freq, 'Hz'

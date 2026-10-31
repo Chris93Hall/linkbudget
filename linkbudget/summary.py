@@ -129,6 +129,23 @@ def _stage_excess_noise_temp_k(stage: dict, noise_bandwidth: float) -> float | N
     return None
 
 
+def _noise_referral_gain(stage: dict) -> float:
+    """Gain used to refer *noise* from this stage's output back to its input.
+
+    That is the stage's available power gain, which for most components is the
+    signal gain.  Stages that act on the signal only (implementation / pointing
+    / polarization loss, scintillation, integration) or that filter the noise
+    differently (``SubBandTune``) report ``noise_referral_gain`` explicitly.
+    """
+    explicit = stage.get("noise_referral_gain")
+    if isinstance(explicit, (int, float)) and not isinstance(explicit, bool):
+        return float(explicit)
+    signal_in = stage["signal_power_in"]
+    if signal_in > 0.0:
+        return stage["signal_power_out"] / signal_in
+    return 1.0
+
+
 def _noise_metrics(summary: BudgetSummary, data_list: StageList,
                    components: Sequence[Component],
                    noise_bandwidth: float | None) -> None:
@@ -145,12 +162,12 @@ def _noise_metrics(summary: BudgetSummary, data_list: StageList,
     t_sys = 0.0
     gain_to_input = 1.0
     for stage in data_list[floor_idx:]:
+        if gain_to_input <= 0.0:
+            break  # nothing passed this far, so later noise cannot be referred back
         excess_temp_k = _stage_excess_noise_temp_k(stage, noise_bandwidth)
         if excess_temp_k is not None:
             t_sys += excess_temp_k / gain_to_input
-        signal_in = stage["signal_power_in"]
-        if signal_in > 0.0:
-            gain_to_input *= stage["signal_power_out"] / signal_in
+        gain_to_input *= _noise_referral_gain(stage)
     if t_sys <= 0.0:
         # only non-thermal noise (e.g. a multiplicative noise-figure model or
         # quantisation) -- fall back to the floor-plane noise power as a temp

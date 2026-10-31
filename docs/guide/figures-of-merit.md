@@ -48,6 +48,21 @@ data = summary.as_dict()          # plain dict, stages included
     temperature — with only those present the value falls back to the
     floor-plane noise power expressed as a temperature.
 
+    Later stages' noise is divided by the *noise* gain of the stages ahead of
+    it. For most components that is the signal gain, but stages that act on
+    the signal only (`ImplementationLoss` and its subclasses, `BeamPointingLoss`,
+    `PolarizationMismatchLoss`, `TroposphericScintillation`, `Integrate`)
+    report `noise_referral_gain = 1.0`, and `SubBandTune` reports its noise
+    bandwidth ratio, so a signal-only loss or integration gain does not
+    distort the system noise temperature or G/T.
+
+    The referral is in the power domain: after a `SubBandTune`, a Friis stage
+    should be given the same `noise_bandwidth` as the noise floor for the
+    temperature to stay comparable (a filter narrows the bandwidth, it does not
+    change a noise *temperature*). If a stage ahead of a later one passes no
+    signal or no noise at all, later contributions can't be referred back and
+    are ignored.
+
 ## `LinkMargin`
 
 Add a [`LinkMargin`][linkbudget.margin.LinkMargin] as the **last** stage. It
@@ -75,7 +90,10 @@ budget.add_component(linkbudget.LinkMargin(
 ```
 
 The margin is `achieved − required + coding_gain − implementation_loss`;
-`closes` is `margin_db >= 0`.
+`closes` is `margin_db >= 0`. Use `coding_gain_db` only when the required
+threshold is for the *uncoded* modulation; if `required_ebno_db` is already
+the requirement of the coded system (e.g. from a coded-BER curve), leave it at
+0 or the coding gain is counted twice.
 
 ## The `linkbudget.fom` module
 

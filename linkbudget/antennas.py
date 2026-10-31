@@ -168,6 +168,7 @@ class BeamPointingLoss(Component):
                 "noise_power_in": noise_power,
                 "signal_power_out": signal_power / loss_linear,
                 "noise_power_out": noise_power,
+                "noise_referral_gain": 1.0,
                 "pointing_error_deg": self.pointing_error_deg,
                 "half_power_beamwidth_deg": self.half_power_beamwidth_deg,
                 "pointing_loss_db": loss_db}
@@ -197,6 +198,7 @@ class PolarizationMismatchLoss(Component):
                 "noise_power_in": noise_power,
                 "signal_power_out": signal_power * efficiency,
                 "noise_power_out": noise_power,
+                "noise_referral_gain": 1.0,
                 "axial_ratio_db_tx": self.axial_ratio_db_tx,
                 "axial_ratio_db_rx": self.axial_ratio_db_rx,
                 "tilt_angle_deg": self.tilt_angle_deg,

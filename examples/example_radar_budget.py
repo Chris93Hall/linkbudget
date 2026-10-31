@@ -121,7 +121,7 @@ budget.add_component(linkbudget.SubBandTune(
 budget.add_component(linkbudget.Integrate(
     'Coherent pulse integration',
     'Coherent integration over a 64-pulse CPI',
-    timespan=64.0))
+    num_samples=64.0))
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 stem = os.path.join(OUTPUT_DIR, 'example_radar_link_budget')

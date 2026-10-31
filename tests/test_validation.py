@@ -199,6 +199,9 @@ class TestPropagationValidation:
         with pytest.raises(ValueError):
             propagation.TroposphericScintillation("s", "", time_percent=0.0)
         with pytest.raises(ValueError):
+            # below the 0.01 % lower limit of the P.618 time-percentage factor
+            propagation.TroposphericScintillation("s", "", time_percent=0.001)
+        with pytest.raises(ValueError):
             propagation.TroposphericScintillation("s", "", antenna_efficiency=2.0)
 
     def test_two_ray_ground_reflection(self):

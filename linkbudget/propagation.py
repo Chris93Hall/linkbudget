@@ -11,7 +11,7 @@ component (it returns the same stage dict as the components in
 The models are deliberately compact approximations, not line-by-line
 reference implementations:
 
-* ``AtmosphericAbsorption``   -- ITU-R P.676 Annex 2 (gaseous, f <= 57 GHz)
+* ``AtmosphericAbsorption``   -- ITU-R P.676 Annex 2 (gaseous, f <= 54 GHz)
 * ``RainAttenuation``         -- ITU-R P.838-3 + P.618 slant path
 * ``CloudFogAttenuation``     -- ITU-R P.840 double-Debye liquid water
 * ``TroposphericScintillation`` -- ITU-R P.618 section 2.4.1
@@ -32,7 +32,10 @@ from .link_container import Component
 # --------------------------------------------------------------------------
 
 def oxygen_specific_attenuation_db_per_km(frequency_ghz: float) -> float:
-    """Specific attenuation from dry air / oxygen (dB/km), valid f <= 57 GHz."""
+    """Specific attenuation from dry air / oxygen (dB/km).
+
+    The ITU-R P.676 Annex 2 expression is valid for f <= 54 GHz; above that
+    the 57 GHz oxygen resonance makes it unreliable."""
     freq = _validate.positive("frequency_ghz", frequency_ghz)
     return (7.19e-3
             + 6.09 / (freq ** 2 + 0.227)
@@ -245,7 +248,12 @@ class RainAttenuation(Component):
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Attenuate the signal and noise by the rain loss over the effective path."""
-        elevation = self.elevation_deg if self.elevation_deg is not None else 90.0
+        # a horizontal path (explicit length) has theta = 0 in the P.838
+        # polarization/elevation formula, not 90 deg
+        if self.path_length_km is not None or self.elevation_deg is None:
+            elevation = 0.0
+        else:
+            elevation = self.elevation_deg
         gamma_r = rain_specific_attenuation_db_per_km(
             self.frequency, self.rain_rate, self.polarization_tilt_deg, elevation)
         effective_km = self._effective_path_km(gamma_r) if gamma_r > 0.0 else 0.0
@@ -413,8 +421,9 @@ class TroposphericScintillation(Component):
         self.temperature_c = temperature_c
         self.relative_humidity_percent = _validate.in_range(
             "relative_humidity_percent", relative_humidity_percent, 0.0, 100.0)
+        # the P.618 time-percentage factor is only specified for 0.01..50 %
         self.time_percent = _validate.in_range(
-            "time_percent", time_percent, 0.0, 50.0, low_open=True)
+            "time_percent", time_percent, 0.01, 50.0)
 
     def propagate_signal(self, signal_power: float, noise_power: float) -> StageData:
         """Attenuate the signal by the scintillation fade depth (noise unchanged)."""
@@ -430,6 +439,7 @@ class TroposphericScintillation(Component):
                 "noise_power_in": noise_power,
                 "signal_power_out": signal_power / loss_linear,
                 "noise_power_out": noise_power,
+                "noise_referral_gain": 1.0,
                 "frequency": self.frequency,
                 "elevation_deg": self.elevation_deg,
                 "scintillation_std_db": sigma,

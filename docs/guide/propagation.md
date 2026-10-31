@@ -30,7 +30,8 @@ linkbudget.AtmosphericAbsorption(
 
 - `water_vapor_density` is absolute humidity in g/m&#179; (7.5 is the ITU-R
   reference).
-- **Validity:** the oxygen term is the P.676 fit for **f &#8804; 57 GHz**;
+- **Validity:** the oxygen term is the P.676 Annex 2 fit for **f &#8804; 54 GHz**
+  (it is unreliable approaching the 57 GHz oxygen resonance);
   the water-vapour term is usable to ~350 GHz. Both assume a standard
   sea-level atmosphere.
 
@@ -52,6 +53,10 @@ linkbudget.RainAttenuation(
 ```
 
 - `rain_rate` is the point rain rate in mm/h (a rate of 0 is transparent).
+- A horizontal path (`path_length_km`) uses an elevation of 0° in the P.838
+  polarization formula, so `polarization_tilt_deg` matters (0° = horizontal
+  polarization is attenuated more than 90° = vertical). Circular (45°) is
+  unaffected. Slant paths use `elevation_deg`.
 - `latitude_deg` refines the vertical-adjustment factor; omit it to use the
   worst case.
 - **Validity:** P.838-3 coefficients cover **1–1000 GHz**; the slant-path

@@ -77,3 +77,20 @@ fom.noise_temp_to_figure_db(50.0)                     # T_e (K) -> NF (dB)
 fom.friis_total_noise_temp_k([50, 120, 300], [35, 30, 0])    # cascade T_e (K)
 fom.friis_total_noise_figure_db([0.7, 2.0, 6.0], [35, 30, 0])  # cascade NF (dB)
 ```
+
+## Quantisation noise
+
+`QuantizationNoise` (and the converters built on it) adds noise of
+`(S + N) / (1.5 · 4^N_eff)`, where `N_eff = total_bits − headroom_db / 6.0206`.
+The reference is a sine that just fills the converter at `headroom_db = 0`:
+signal power `V_fs²/8` against quantisation noise `V_fs²/(12 · 4^N)`, which is
+the textbook `SQNR = 6.02·N + 1.76 dB`. Each 6.02 dB of headroom costs one bit
+(6.02 dB) of SQNR.
+
+## Band-limiting and integration
+
+`SubBandTune` assumes flat noise across its input band, so the noise that
+survives is the fraction of the *input* band that lies inside the *output*
+band; the signal that survives is the fraction of the signal band inside both
+bands. `Integrate` applies a dimensionless coherent-processing gain to the
+signal only (`num_samples`, or `timespan × bandwidth`).
